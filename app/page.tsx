@@ -135,7 +135,7 @@ export default function Home() {
                 <li>✓ Instant results</li>
               </ul>
               <Link
-                href="/auth/login"
+                href="/auth/login?intent=upgrade"
                 className="mt-8 block rounded-xl bg-[#c9b87a] py-3 text-center text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90"
               >
                 Upgrade — $5 one-time →
