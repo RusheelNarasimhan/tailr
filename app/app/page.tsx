@@ -33,6 +33,16 @@ function AppPageInner() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (searchParams.get("checkout") === "true") {
+      fetch("/api/stripe/checkout", { method: "POST" })
+        .then((res) => res.json())
+        .then((data: { url?: string }) => {
+          if (data.url) window.location.href = data.url;
+        });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     async function fetchProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;

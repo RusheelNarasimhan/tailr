@@ -36,10 +36,17 @@ export default function LoginPage() {
         setError("Please enter your email.");
         return;
       }
+
+      const intent = new URLSearchParams(window.location.search).get("intent");
+      const redirectTo =
+        intent === "upgrade"
+          ? `${origin}/auth/callback?next=/app?checkout=true`
+          : `${origin}/auth/callback`;
+
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: trimmed,
         options: {
-          emailRedirectTo: `${origin}/auth/callback`,
+          emailRedirectTo: redirectTo,
         },
       });
       if (otpError) throw otpError;
