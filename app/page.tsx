@@ -38,7 +38,6 @@ export default function Home() {
           Paste your bullets and a job description. Get ATS-optimized rewrites
           in seconds — no fluff, no fabrication.
         </p>
-
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/auth/login"
@@ -80,10 +79,7 @@ export default function Home() {
                 desc: "Receive rewritten bullets that mirror the job's keywords and tone.",
               },
             ].map(({ step, title, desc }) => (
-              <div
-                key={step}
-                className="rounded-2xl border border-white/10 bg-white/5 p-6"
-              >
+              <div key={step} className="rounded-2xl border border-white/10 bg-white/5 p-6">
                 <p className="mb-3 text-xs font-semibold tracking-widest text-[#c9b87a]">
                   {step}
                 </p>
@@ -106,9 +102,7 @@ export default function Home() {
             <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
               <p className="text-sm font-semibold text-[#f0ede6]/50">Free</p>
               <p className="mt-3 text-4xl font-bold">$0</p>
-              <p className="mt-1 text-sm text-[#f0ede6]/40">
-                no credit card needed
-              </p>
+              <p className="mt-1 text-sm text-[#f0ede6]/40">no credit card needed</p>
               <ul className="mt-6 space-y-3 text-sm text-[#f0ede6]/70">
                 <li>✓ 3 tailors free</li>
                 <li>✓ Full ATS optimization</li>
@@ -126,20 +120,19 @@ export default function Home() {
             <div className="rounded-2xl border border-[#c9b87a]/40 bg-[#c9b87a]/5 p-8">
               <p className="text-sm font-semibold text-[#c9b87a]">Pro</p>
               <p className="mt-3 text-4xl font-bold text-[#c9b87a]">$5</p>
-              <p className="mt-1 text-sm text-[#f0ede6]/40">
-                one-time payment
-              </p>
+              <p className="mt-1 text-sm text-[#f0ede6]/40">one-time payment</p>
               <ul className="mt-6 space-y-3 text-sm text-[#f0ede6]/70">
                 <li>✓ Unlimited tailoring forever</li>
                 <li>✓ Full ATS optimization</li>
                 <li>✓ Instant results</li>
               </ul>
-              <Link
-                href="/auth/login?intent=upgrade"
+
+              <a
+                href="/app?checkout=true"
                 className="mt-8 block rounded-xl bg-[#c9b87a] py-3 text-center text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90"
               >
                 Upgrade — $5 one-time →
-              </Link>
+              </a>
             </div>
           </div>
         </div>
