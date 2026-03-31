@@ -11,6 +11,16 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(new URL(next, url.origin));
-}
+  // Build the redirect URL properly to preserve query params in `next`
+  const redirectUrl = new URL(url.origin);
+  const [pathname, query] = next.split("?");
+  redirectUrl.pathname = pathname;
+  if (query) {
+    query.split("&").forEach((pair) => {
+      const [key, value] = pair.split("=");
+      redirectUrl.searchParams.set(key, value ?? "");
+    });
+  }
 
+  return NextResponse.redirect(redirectUrl);
+}
