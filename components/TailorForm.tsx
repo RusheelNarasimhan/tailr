@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { TailorOutput } from "@/components/OutputPanel";
+import type { TailorResult } from "@/components/OutputPanel";
+import { LATEX_TEMPLATES, type LatexTemplateId } from "@/types/resume";
 
 type TailorFormProps = {
-  onResult: (payload: TailorOutput) => void;
+  onResult: (payload: TailorResult) => void;
   onUpgradeRequired: () => void;
 };
 
@@ -16,6 +17,7 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
   const [linkedin, setLinkedin] = useState("");
   const [resumeBullets, setResumeBullets] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+  const [template, setTemplate] = useState<LatexTemplateId>("modern");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,25 +40,33 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           linkedin,
           resumeBullets,
           jobDescription,
+          template,
         }),
       });
-      const data = (await res.json()) as TailorOutput & { error?: string };
+      const data = (await res.json()) as TailorResult & { error?: string; detail?: string };
 
       if (res.status === 403) {
         onUpgradeRequired();
         return;
       }
       if (!res.ok) {
-        const hint =
-          "detail" in data && typeof (data as { detail?: string }).detail === "string"
-            ? ` (${(data as { detail: string }).detail})`
-            : "";
+        const hint = data.detail ? ` (${data.detail})` : "";
         throw new Error((data.error ?? "Something went wrong") + hint);
       }
-      if (data.latex?.trim() && typeof data.docx === "string") {
-        onResult({ latex: data.latex, docx: data.docx });
+      if (
+        Array.isArray(data.variants) &&
+        data.variants.length === 3 &&
+        data.variants.every((v) => v.latex?.trim() && typeof v.docx === "string")
+      ) {
+        onResult({
+          variants: data.variants,
+          keywords: data.keywords ?? { skills: [], tools: [], actionVerbs: [] },
+          quality: data.quality ?? { score: 0, feedback: [] },
+          template: data.template ?? template,
+          cached: Boolean(data.cached),
+        });
       } else {
-        throw new Error("Response missing latex or docx — check Network tab for API body.");
+        throw new Error("Response missing variants — check Network tab for API body.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
@@ -73,6 +83,32 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="latex-template"
+            className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40"
+          >
+            LaTeX layout
+          </label>
+          <select
+            id="latex-template"
+            value={template}
+            onChange={(e) => setTemplate(e.target.value as LatexTemplateId)}
+            className="max-w-xs rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-[#f0ede6] outline-none focus:border-[#c9b87a]/50"
+          >
+            {LATEX_TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className="text-xs text-[#f0ede6]/40">
+          Compact = dense · Modern = balanced · Academic = section-heavy
+        </p>
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <p className="mb-3 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
           Header (optional)
@@ -120,7 +156,7 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
         disabled={loading}
         className="rounded-xl bg-[#c9b87a] px-6 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
       >
-        {loading ? "Generating…" : "Generate resume (LaTeX + Word) →"}
+        {loading ? "Generating 3 variants…" : "Generate 3 resume variants →"}
       </button>
     </div>
   );

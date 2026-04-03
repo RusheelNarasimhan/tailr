@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
-import OutputPanel, { type TailorOutput } from "@/components/OutputPanel";
+import OutputPanel, { type TailorResult } from "@/components/OutputPanel";
 import TailorForm from "@/components/TailorForm";
 import UpgradeModal from "@/components/UpgradeModal";
 import UsageBar from "@/components/UsageBar";
@@ -52,7 +52,7 @@ function AppPageInner() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [output, setOutput] = useState<TailorOutput | null>(null);
+  const [output, setOutput] = useState<TailorResult | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -158,7 +158,7 @@ function AppPageInner() {
     void fetchProfile();
   }, [supabase]);
 
-  function handleResult(payload: TailorOutput) {
+  function handleResult(payload: TailorResult) {
     setOutput(payload);
 
     setProfile((prev) =>
@@ -180,7 +180,7 @@ function AppPageInner() {
               Resume Tailor
             </h1>
             <p className="mt-1 text-sm text-[#f0ede6]/50">
-              Paste your bullets and a job description. Get structured LaTeX (PDF) and Word (.docx) in one run.
+              Three tailored variants per run, job keyword extraction, match score, and LaTeX / Word for each.
             </p>
           </div>
 

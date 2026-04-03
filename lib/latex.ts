@@ -1,4 +1,4 @@
-import type { ResumeData } from "@/types/resume";
+import type { LatexTemplateId, ResumeData } from "@/types/resume";
 
 export function escapeLatex(s: string): string {
   if (!s) return "";
@@ -24,7 +24,44 @@ function contactLine(data: ResumeData): string {
   return parts.join(" \\textbullet\\ ");
 }
 
-export function generateLatexResume(data: ResumeData): string {
+const TEMPLATE_PREAMBLE: Record<
+  LatexTemplateId,
+  { geometry: string; bodySize: string; extras: string[] }
+> = {
+  compact: {
+    geometry: "\\usepackage[margin=0.45in]{geometry}",
+    bodySize: "\\small",
+    extras: [
+      "\\setlength{\\parskip}{0.25em}",
+      "\\titleformat{\\section}{\\normalsize\\bfseries}{}{0em}{}[\\titlerule]",
+      "\\titlespacing*{\\section}{0pt}{0.6ex}{0.25ex}",
+    ],
+  },
+  modern: {
+    geometry: "\\usepackage[margin=0.65in]{geometry}",
+    bodySize: "",
+    extras: [
+      "\\titleformat{\\section}{\\large\\bfseries}{}{0em}{}[\\titlerule]",
+      "\\titlespacing*{\\section}{0pt}{1.2ex}{0.6ex}",
+    ],
+  },
+  academic: {
+    geometry: "\\usepackage[margin=0.75in]{geometry}",
+    bodySize: "",
+    extras: [
+      "\\titleformat{\\section}{\\bfseries\\scshape}{}{0em}{}",
+      "\\titlespacing*{\\section}{0pt}{1.4ex}{0.5ex}",
+      "\\titleformat{\\subsection}{\\bfseries}{}{0em}{}",
+      "\\titlespacing*{\\subsection}{0pt}{0.8ex}{0.3ex}",
+    ],
+  },
+};
+
+export function generateLatexResume(
+  data: ResumeData,
+  template: LatexTemplateId = "modern",
+): string {
+  const t = TEMPLATE_PREAMBLE[template];
   const name = escapeLatex(data.header.name) || "Candidate";
   const contact = contactLine(data);
   const summary = escapeLatex(data.summary);
@@ -43,39 +80,61 @@ export function generateLatexResume(data: ResumeData): string {
   for (const job of data.experience) {
     const title = escapeLatex(job.title.trim());
     if (!title && job.bullets.length === 0) continue;
-    if (title) {
+
+    if (template === "academic" && title) {
+      expTex += `\\subsection*{${title}}\n`;
+    } else if (title) {
       expTex += `\\textbf{${title}}\\par\\vspace{0.25em}\n`;
     }
+
     if (job.bullets.length > 0) {
-      expTex += "\\begin{itemize}[leftmargin=*,nosep,topsep=2pt,itemsep=2pt]\n";
+      const itemsep =
+        template === "compact" ? "itemsep=1pt" : "itemsep=2pt";
+      const topsep = template === "compact" ? "topsep=1pt" : "topsep=2pt";
+      expTex += `\\begin{itemize}[leftmargin=*,nosep,${topsep},${itemsep}]\n`;
       for (const b of job.bullets) {
-        expTex += `\\item ${escapeLatex(b)}\n`;
+        expTex += `\\item ${escapeLatex(b.text)}\n`;
       }
       expTex += "\\end{itemize}\n\\vspace{0.6em}\n";
     }
   }
 
-  return [
+  const sectionSummary =
+    template === "academic" ? "\\section*{Summary}" : "\\section*{SUMMARY}";
+  const sectionSkills =
+    template === "academic" ? "\\section*{Skills}" : "\\section*{SKILLS}";
+  const sectionExp =
+    template === "academic"
+      ? "\\section*{Experience}"
+      : "\\section*{EXPERIENCE}";
+
+  const nameSize = template === "compact" ? "\\Large" : "\\LARGE";
+  const headerSkip = template === "compact" ? "0.25em" : "0.4em";
+  const afterHeader = template === "compact" ? "0.4em" : "0.8em";
+
+  const lines = [
     "\\documentclass[11pt]{article}",
-    "\\usepackage[margin=0.6in]{geometry}",
+    t.geometry,
     "\\usepackage{enumitem}",
     "\\usepackage{titlesec}",
     "\\usepackage[hidelinks]{hyperref}",
-    "\\titleformat{\\section}{\\large\\bfseries}{}{0em}{}[\\titlerule]",
-    "\\titlespacing*{\\section}{0pt}{1.2ex}{0.6ex}",
+    ...t.extras,
     "\\pagestyle{empty}",
     "\\begin{document}",
+    t.bodySize,
     "\\begin{center}",
-    `{\\LARGE\\bfseries ${name}}\\\\[0.4em]`,
+    `{${nameSize}\\bfseries ${name}}\\\\[${headerSkip}]`,
     `{\\small ${contact}}`,
     "\\end{center}",
-    "\\vspace{0.8em}",
-    "\\section*{SUMMARY}",
+    `\\vspace{${afterHeader}}`,
+    sectionSummary,
     summary || "\\textit{(No summary.)}",
-    "\\section*{SKILLS}",
+    sectionSkills,
     skillsTex.trim() || "\\textit{(No skills listed.)}",
-    "\\section*{EXPERIENCE}",
+    sectionExp,
     expTex.trim() || "\\textit{(No experience listed.)}",
     "\\end{document}",
-  ].join("\n");
+  ];
+
+  return lines.join("\n");
 }
