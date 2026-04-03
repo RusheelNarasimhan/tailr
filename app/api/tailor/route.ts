@@ -1,10 +1,17 @@
+import { fetchStructuredResumeJson } from "@/lib/anthropic";
+import { generateDocxResume } from "@/lib/docx";
+import { generateLatexResume } from "@/lib/latex";
 import { createClient } from "@/lib/supabase/server";
-import { getAnthropicClient, LATEX_RESUME_SYSTEM_PROMPT } from "@/lib/anthropic";
-import { stripMarkdownFences } from "@/lib/latexOutput";
+import {
+  assertResumeDataUsable,
+  mergeOptionalHeader,
+  normalizeResumeData,
+  type ResumeHeader,
+} from "@/types/resume";
 import { NextResponse } from "next/server";
 
-type TailorResumePayload = {
-  resumeBullets?: string;
+type TailorRequestBody = {
+  resumeBullets?: string | string[];
   jobDescription?: string;
   name?: string;
   email?: string;
@@ -12,6 +19,19 @@ type TailorResumePayload = {
   location?: string;
   linkedin?: string;
 };
+
+function toBulletArray(raw: string | string[] | undefined): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((s) => String(s).trim()).filter(Boolean);
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^[-•*\d.)\s]+/u, "").trim())
+      .filter(Boolean);
+  }
+  return [];
+}
 
 export async function POST(request: Request) {
   try {
@@ -48,54 +68,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "upgrade required" }, { status: 403 });
     }
 
-    const body = (await request.json()) as TailorResumePayload;
-    const resumeBullets = body.resumeBullets?.trim();
-    const jobDescription = body.jobDescription?.trim();
+    const body = (await request.json()) as TailorRequestBody;
+    const resumeBullets = toBulletArray(body.resumeBullets);
+    const jobDescription = body.jobDescription?.trim() ?? "";
 
-    if (!resumeBullets || !jobDescription) {
+    if (!resumeBullets.length || !jobDescription) {
       return NextResponse.json(
-        { error: "resumeBullets and jobDescription are required" },
+        { error: "resumeBullets (non-empty) and jobDescription are required" },
         { status: 400 },
       );
     }
 
-    const userInputJson = JSON.stringify({
-      name: body.name?.trim() || undefined,
-      email: body.email?.trim() || undefined,
-      phone: body.phone?.trim() || undefined,
-      location: body.location?.trim() || undefined,
-      linkedin: body.linkedin?.trim() || undefined,
+    const optionalHeader: Partial<ResumeHeader> = {
+      name: body.name?.trim(),
+      email: body.email?.trim(),
+      phone: body.phone?.trim(),
+      location: body.location?.trim(),
+      linkedin: body.linkedin?.trim(),
+    };
+
+    const rawJson = await fetchStructuredResumeJson({
       jobDescription,
       resumeBullets,
+      optionalHeader,
     });
 
-    const anthropic = getAnthropicClient();
+    let data = normalizeResumeData(rawJson);
+    data = mergeOptionalHeader(data, optionalHeader);
+    assertResumeDataUsable(data);
 
-    const completion = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: LATEX_RESUME_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Data:\n${userInputJson}\n\nOutput:\nReturn ONLY valid LaTeX code.`,
-        },
-      ],
-    });
-
-    const raw = completion.content
-      .map((block) => ("text" in block ? block.text : ""))
-      .join("")
-      .trim();
-
-    const result = stripMarkdownFences(raw);
-
-    if (!result || !result.includes("\\documentclass")) {
-      return NextResponse.json(
-        { error: "model did not return valid LaTeX" },
-        { status: 500 },
-      );
-    }
+    const latex = generateLatexResume(data);
+    const docxBuffer = await generateDocxResume(data);
+    const docx = Buffer.from(docxBuffer).toString("base64");
 
     const { error: updateError } = await supabase
       .from("profiles")
@@ -106,7 +110,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ result });
+    return NextResponse.json({ latex, docx });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

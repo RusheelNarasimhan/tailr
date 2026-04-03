@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
-import OutputPanel from "@/components/OutputPanel";
+import OutputPanel, { type TailorOutput } from "@/components/OutputPanel";
 import TailorForm from "@/components/TailorForm";
 import UpgradeModal from "@/components/UpgradeModal";
 import UsageBar from "@/components/UsageBar";
@@ -52,7 +52,7 @@ function AppPageInner() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [result, setResult] = useState<string | null>(null);
+  const [output, setOutput] = useState<TailorOutput | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -158,10 +158,9 @@ function AppPageInner() {
     void fetchProfile();
   }, [supabase]);
 
-  function handleResult(res: string) {
-    setResult(res);
+  function handleResult(payload: TailorOutput) {
+    setOutput(payload);
 
-    // Optimistic UI update
     setProfile((prev) =>
       prev ? { ...prev, uses_count: prev.uses_count + 1 } : prev
     );
@@ -181,7 +180,7 @@ function AppPageInner() {
               Resume Tailor
             </h1>
             <p className="mt-1 text-sm text-[#f0ede6]/50">
-              Paste your bullets and a job description. Get a minimal, ATS-friendly LaTeX resume for PDF export.
+              Paste your bullets and a job description. Get structured LaTeX (PDF) and Word (.docx) in one run.
             </p>
           </div>
 
@@ -200,7 +199,7 @@ function AppPageInner() {
         </div>
 
         <div ref={outputRef}>
-          <OutputPanel result={result} />
+          <OutputPanel output={output} />
         </div>
       </main>
 

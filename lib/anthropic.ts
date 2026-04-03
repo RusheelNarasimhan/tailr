@@ -1,35 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { parseJsonFromModelText } from "@/lib/latexOutput";
 
 export const TAILOR_SYSTEM_PROMPT =
   "You are an expert resume writer and ATS optimization specialist. Rewrite the provided resume bullet points to match the job description. Rules: preserve the same number of bullets, never fabricate experience, mirror keywords and phrasing from the job description, use strong action verbs, keep quantifiable metrics if they exist, keep each bullet to 1-2 lines, output ONLY the rewritten bullets one per line each starting with a bullet character, no explanation or intro text.";
 
-export const LATEX_RESUME_SYSTEM_PROMPT = `You are generating a clean, professional LaTeX document for PDF export.
+export const STRUCTURED_RESUME_SYSTEM_PROMPT = `You output ONLY valid JSON (no markdown fences, no LaTeX, no commentary before or after the JSON).
 
-Context:
-- This will be compiled using a LaTeX API (no errors allowed)
-- Must be minimal, modern, and ATS-friendly (for resumes)
-- Avoid unnecessary packages
-- Ensure it compiles with pdflatex
+The JSON must match this shape exactly:
+{
+  "header": { "name": "", "email": "", "phone": "", "location": "", "linkedin": "" },
+  "summary": "",
+  "skills": { "languages": [], "tools": [], "concepts": [] },
+  "experience": [ { "title": "", "bullets": [] } ]
+}
 
 Rules:
-- Always return FULL LaTeX code (no explanations)
-- Use standard documentclass (article or moderncv if needed)
-- Keep margins tight and professional
-- Use consistent formatting (sections, spacing, alignment)
-- No comments unless necessary
-- Escape special characters properly in all user-supplied text (%, $, _, #, &, ~, ^, {, }, backslash)
+- Plain text only in strings — no LaTeX, no HTML, no markdown formatting symbols.
+- ATS-friendly, concise language tailored to the job description.
+- Rewrite resume content to align with jobDescription; never fabricate experience or employers.
+- Every key listed above must be present. Use "" or [] when unknown.
+- skills.languages, skills.tools, skills.concepts: short phrases or single words per array item.
+- experience: group bullets under realistic titles (e.g. role or "Professional Experience"). Each bullet is one string in bullets[].
 
-Structure:
-- Header (name, contact info from JSON when provided)
-- Sections with clean formatting
-- Bullet points where needed
-- No overcomplicated styling
-- Rewrite and organize resume content so it aligns with the job description (keywords, tone) without fabricating experience
-
-The user message is a single JSON object (the candidate and job data). Parse it and produce the document.
-
-Output:
-Return ONLY valid LaTeX code. Do not wrap in markdown code fences.`;
+The user message is a single JSON object with: jobDescription (string), resumeBullets (string[]), optionalHeader (object with optional name, email, phone, location, linkedin strings).`;
 
 export function getAnthropicClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -39,3 +32,40 @@ export function getAnthropicClient() {
   return new Anthropic({ apiKey });
 }
 
+export type StructuredResumeInput = {
+  jobDescription: string;
+  resumeBullets: string[];
+  optionalHeader: Partial<{
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    linkedin: string;
+  }>;
+};
+
+export async function fetchStructuredResumeJson(input: StructuredResumeInput): Promise<unknown> {
+  const anthropic = getAnthropicClient();
+  const completion = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    system: STRUCTURED_RESUME_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: JSON.stringify({
+          jobDescription: input.jobDescription,
+          resumeBullets: input.resumeBullets,
+          optionalHeader: input.optionalHeader,
+        }),
+      },
+    ],
+  });
+
+  const raw = completion.content
+    .map((block) => ("text" in block ? block.text : ""))
+    .join("")
+    .trim();
+
+  return parseJsonFromModelText(raw);
+}

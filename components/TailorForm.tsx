@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type { TailorOutput } from "@/components/OutputPanel";
 
 type TailorFormProps = {
-  onResult: (result: string) => void;
+  onResult: (payload: TailorOutput) => void;
   onUpgradeRequired: () => void;
 };
 
@@ -39,14 +40,16 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           jobDescription,
         }),
       });
-      const data = (await res.json()) as { result?: string; error?: string };
+      const data = (await res.json()) as TailorOutput & { error?: string };
 
       if (res.status === 403) {
         onUpgradeRequired();
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
-      if (data.result) onResult(data.result);
+      if (data.latex && data.docx) {
+        onResult({ latex: data.latex, docx: data.docx });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -64,7 +67,7 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
     <div className="space-y-4">
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <p className="mb-3 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
-          Header (optional, for LaTeX PDF)
+          Header (optional)
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <input className={inputSm} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -109,7 +112,7 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
         disabled={loading}
         className="rounded-xl bg-[#c9b87a] px-6 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
       >
-        {loading ? "Generating LaTeX…" : "Generate LaTeX resume →"}
+        {loading ? "Generating…" : "Generate resume (LaTeX + Word) →"}
       </button>
     </div>
   );
