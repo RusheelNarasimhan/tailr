@@ -21,15 +21,22 @@ export function stripJsonOrMarkdownFences(text: string): string {
 }
 
 export function parseJsonFromModelText(text: string): unknown {
-  const cleaned = stripJsonOrMarkdownFences(text);
+  let cleaned = text.trim();
+  cleaned = cleaned.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error("No JSON object found in model output");
+  }
+
+  const slice = cleaned.slice(firstBrace, lastBrace + 1);
+
   try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
-    }
-    throw new Error("Model output was not valid JSON");
+    return JSON.parse(slice);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`JSON.parse failed: ${msg}`);
   }
 }

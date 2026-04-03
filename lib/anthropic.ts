@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { parseJsonFromModelText } from "@/lib/latexOutput";
 
 export const TAILOR_SYSTEM_PROMPT =
   "You are an expert resume writer and ATS optimization specialist. Rewrite the provided resume bullet points to match the job description. Rules: preserve the same number of bullets, never fabricate experience, mirror keywords and phrasing from the job description, use strong action verbs, keep quantifiable metrics if they exist, keep each bullet to 1-2 lines, output ONLY the rewritten bullets one per line each starting with a bullet character, no explanation or intro text.";
@@ -44,7 +43,9 @@ export type StructuredResumeInput = {
   }>;
 };
 
-export async function fetchStructuredResumeJson(input: StructuredResumeInput): Promise<unknown> {
+export async function fetchStructuredResumeRawText(
+  input: StructuredResumeInput,
+): Promise<string> {
   const anthropic = getAnthropicClient();
   const completion = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
@@ -62,10 +63,8 @@ export async function fetchStructuredResumeJson(input: StructuredResumeInput): P
     ],
   });
 
-  const raw = completion.content
+  return completion.content
     .map((block) => ("text" in block ? block.text : ""))
     .join("")
     .trim();
-
-  return parseJsonFromModelText(raw);
 }

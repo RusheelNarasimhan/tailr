@@ -1,6 +1,7 @@
-import { fetchStructuredResumeJson } from "@/lib/anthropic";
+import { fetchStructuredResumeRawText } from "@/lib/anthropic";
 import { generateDocxResume } from "@/lib/docx";
 import { generateLatexResume } from "@/lib/latex";
+import { parseJsonFromModelText } from "@/lib/latexOutput";
 import { createClient } from "@/lib/supabase/server";
 import {
   assertResumeDataUsable,
@@ -69,6 +70,13 @@ export async function POST(request: Request) {
     }
 
     const body = (await request.json()) as TailorRequestBody;
+
+    if (process.env.TAILOR_MOCK_RESPONSE === "1") {
+      const mockLatex = "\\documentclass{article}\\begin{document}Test\\end{document}";
+      const mockDocx = Buffer.from("test").toString("base64");
+      return NextResponse.json({ latex: mockLatex, docx: mockDocx });
+    }
+
     const resumeBullets = toBulletArray(body.resumeBullets);
     const jobDescription = body.jobDescription?.trim() ?? "";
 
@@ -87,15 +95,46 @@ export async function POST(request: Request) {
       linkedin: body.linkedin?.trim(),
     };
 
-    const rawJson = await fetchStructuredResumeJson({
+    const modelText = await fetchStructuredResumeRawText({
       jobDescription,
       resumeBullets,
       optionalHeader,
     });
 
+    console.log("[tailor] RAW MODEL OUTPUT:\n", modelText);
+
+    let rawJson: unknown;
+    try {
+      rawJson = parseJsonFromModelText(modelText);
+    } catch (parseErr) {
+      console.error("[tailor] JSON PARSE FAILED:", parseErr);
+      const detail =
+        process.env.NODE_ENV === "development"
+          ? parseErr instanceof Error
+            ? parseErr.message
+            : String(parseErr)
+          : undefined;
+      return NextResponse.json(
+        {
+          error: "Model did not return valid JSON",
+          ...(detail ? { detail } : {}),
+        },
+        { status: 502 },
+      );
+    }
+
     let data = normalizeResumeData(rawJson);
     data = mergeOptionalHeader(data, optionalHeader);
-    assertResumeDataUsable(data);
+
+    try {
+      assertResumeDataUsable(data);
+    } catch (validationErr) {
+      console.error("[tailor] VALIDATION FAILED:", validationErr);
+      return NextResponse.json(
+        { error: "Invalid resume data after normalization" },
+        { status: 422 },
+      );
+    }
 
     const latex = generateLatexResume(data);
     const docxBuffer = await generateDocxResume(data);
@@ -113,6 +152,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ latex, docx });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
+    console.error("[tailor] UNHANDLED:", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

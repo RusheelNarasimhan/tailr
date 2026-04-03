@@ -46,9 +46,17 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
         onUpgradeRequired();
         return;
       }
-      if (!res.ok) throw new Error(data.error ?? "Something went wrong");
-      if (data.latex && data.docx) {
+      if (!res.ok) {
+        const hint =
+          "detail" in data && typeof (data as { detail?: string }).detail === "string"
+            ? ` (${(data as { detail: string }).detail})`
+            : "";
+        throw new Error((data.error ?? "Something went wrong") + hint);
+      }
+      if (data.latex?.trim() && typeof data.docx === "string") {
         onResult({ latex: data.latex, docx: data.docx });
+      } else {
+        throw new Error("Response missing latex or docx — check Network tab for API body.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");

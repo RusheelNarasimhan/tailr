@@ -14,9 +14,10 @@ type OutputPanelProps = {
 export default function OutputPanel({ output }: OutputPanelProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!output) return null;
+  if (!output?.latex?.trim()) return null;
 
   const { latex, docx } = output;
+  const hasDocx = docx.length > 0;
 
   async function handleCopyLatex() {
     await navigator.clipboard.writeText(latex);
@@ -25,6 +26,7 @@ export default function OutputPanel({ output }: OutputPanelProps) {
   }
 
   function handleDownloadDocx() {
+    if (!hasDocx) return;
     const binary = atob(docx);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
@@ -69,7 +71,8 @@ export default function OutputPanel({ output }: OutputPanelProps) {
           <button
             type="button"
             onClick={handleDownloadDocx}
-            className="rounded-lg bg-[#c9b87a] px-4 py-2 text-xs font-semibold text-[#0a0a0a] transition hover:opacity-90"
+            disabled={!hasDocx}
+            className="rounded-lg bg-[#c9b87a] px-4 py-2 text-xs font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Download .docx
           </button>
