@@ -114,24 +114,36 @@ function AppPageInner() {
     return () => clearTimeout(toastTimer);
   }, [searchParams, supabase, router]);
 
-  // Handle checkout trigger (prevent duplicate calls)
+  // Start Stripe checkout only for non‑Pro users (avoid paywall if already upgraded).
   useEffect(() => {
-    if (searchParams.get("checkout") === "true") {
-      const controller = new AbortController();
+    if (searchParams.get("checkout") !== "true") return;
+    if (profileLoading) return;
 
-      fetch("/api/stripe/checkout", {
-        method: "POST",
-        signal: controller.signal,
-      })
-        .then((res) => res.json())
-        .then((data: { url?: string }) => {
-          if (data.url) window.location.href = data.url;
-        })
-        .catch(() => {});
-
-      return () => controller.abort();
+    if (profile?.is_pro) {
+      router.replace("/app");
+      return;
     }
-  }, [searchParams]);
+
+    if (!profile) return;
+
+    const controller = new AbortController();
+
+    fetch("/api/stripe/checkout", {
+      method: "POST",
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((data: { url?: string; alreadyPro?: boolean }) => {
+        if (data.alreadyPro) {
+          router.replace("/app");
+          return;
+        }
+        if (data.url) window.location.href = data.url;
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [searchParams, profileLoading, profile, router]);
 
   // Fetch profile
   useEffect(() => {
@@ -204,7 +216,22 @@ function AppPageInner() {
       </main>
 
       {showUpgrade && (
-        <UpgradeModal onClose={() => setShowUpgrade(false)} />
+        <UpgradeModal
+          isPro={profile?.is_pro ?? false}
+          onClose={() => setShowUpgrade(false)}
+          onRefreshProfile={async () => {
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data } = await supabase
+              .from("profiles")
+              .select("uses_count,is_pro")
+              .eq("id", user.id)
+              .single();
+            if (data) setProfile(data as Profile);
+          }}
+        />
       )}
 
       {toast && (

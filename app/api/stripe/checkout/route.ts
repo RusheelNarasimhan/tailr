@@ -34,6 +34,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("is_pro")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (existingProfile?.is_pro === true) {
+      return NextResponse.json({ alreadyPro: true as const });
+    }
+
     const appUrl = resolveAppOrigin(request);
     const stripe = getStripe();
 
