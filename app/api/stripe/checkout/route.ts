@@ -1,8 +1,27 @@
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-export async function POST() {
+function resolveAppOrigin(request: Request): string {
+  const origin = request.headers.get("origin");
+  if (origin && /^https?:\/\//i.test(origin)) {
+    return origin.replace(/\/$/, "");
+  }
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      /* ignore */
+    }
+  }
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (envUrl) return envUrl;
+  return "http://localhost:3000";
+}
+
+export async function POST(request: Request) {
   try {
     const supabase = createClient();
 
@@ -15,7 +34,8 @@ export async function POST() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = resolveAppOrigin(request);
+    const stripe = getStripe();
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -27,7 +47,7 @@ export async function POST() {
               name: "Tailr Pro",
               description: "Unlimited resume tailoring forever",
             },
-            unit_amount: 500, // $5.00
+            unit_amount: 500,
           },
           quantity: 1,
         },
@@ -35,7 +55,7 @@ export async function POST() {
       metadata: {
         userId: user.id,
       },
-      success_url: `${appUrl}/app?upgraded=true`,
+      success_url: `${appUrl}/app?upgraded=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app`,
     });
 

@@ -2,7 +2,7 @@
 // Developers → Webhooks → Add endpoint → https://yourdomain.com/api/stripe/webhook
 // Select event: checkout.session.completed
 
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "missing signature or secret" }, { status: 400 });
   }
 
+  const stripe = getStripe();
   let event: ReturnType<typeof stripe.webhooks.constructEvent>;
 
   try {
@@ -27,37 +28,31 @@ export async function POST(request: Request) {
   }
 
   if (event.type === "checkout.session.completed") {
-  const session = event.data.object;
-  const userId = session.metadata?.userId;
+    const session = event.data.object;
+    const userId = session.metadata?.userId;
 
-  console.log("webhook: userId from metadata", userId);
+    if (!userId) {
+      return NextResponse.json({ error: "no userId in metadata" }, { status: 400 });
+    }
 
-  if (!userId) {
-    return NextResponse.json({ error: "no userId in metadata" }, { status: 400 });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceKey) {
+      return NextResponse.json({ error: "missing supabase env vars" }, { status: 500 });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ is_pro: true })
+      .eq("id", userId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  console.log("webhook: supabaseUrl", supabaseUrl, "serviceKey exists", !!serviceKey);
-
-  if (!supabaseUrl || !serviceKey) {
-    return NextResponse.json({ error: "missing supabase env vars" }, { status: 500 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceKey);
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ is_pro: true })
-    .eq("id", userId);
-
-  console.log("webhook: update error", error);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
 
   return NextResponse.json({ received: true });
 }

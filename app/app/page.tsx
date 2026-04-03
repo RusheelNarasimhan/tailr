@@ -7,7 +7,7 @@ import TailorForm from "@/components/TailorForm";
 import UpgradeModal from "@/components/UpgradeModal";
 import UsageBar from "@/components/UsageBar";
 import { createClient } from "@/lib/supabase/client";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Profile = {
   uses_count: number;
@@ -48,6 +48,7 @@ function useFadeIn(delay = 0) {
 
 function AppPageInner() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -61,14 +62,47 @@ function AppPageInner() {
 
   const searchParams = useSearchParams();
 
-  // Handle upgrade success
+  // After Stripe checkout: confirm payment server-side (webhooks don't hit localhost).
   useEffect(() => {
-    if (searchParams.get("upgraded") === "true") {
-      setToast("You're now on Pro — unlimited tailoring unlocked 🎉");
-      const t = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(t);
+    const upgraded = searchParams.get("upgraded") === "true";
+    const sessionId = searchParams.get("session_id");
+
+    if (!upgraded) return;
+
+    setToast("You're now on Pro — unlimited tailoring unlocked 🎉");
+    const toastTimer = setTimeout(() => setToast(null), 4000);
+
+    if (sessionId) {
+      void (async () => {
+        try {
+          const res = await fetch("/api/stripe/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId }),
+          });
+          if (!res.ok) return;
+
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) return;
+
+          const { data } = await supabase
+            .from("profiles")
+            .select("uses_count,is_pro")
+            .eq("id", user.id)
+            .single();
+
+          if (data) setProfile(data as Profile);
+          router.replace("/app");
+        } catch {
+          /* keep query params; user can refresh */
+        }
+      })();
     }
-  }, [searchParams]);
+
+    return () => clearTimeout(toastTimer);
+  }, [searchParams, supabase, router]);
 
   // Handle checkout trigger (prevent duplicate calls)
   useEffect(() => {
@@ -137,7 +171,7 @@ function AppPageInner() {
               Resume Tailor
             </h1>
             <p className="mt-1 text-sm text-[#f0ede6]/50">
-              Paste your bullets and a job description. Get ATS-optimized rewrites instantly.
+              Paste your bullets and a job description. Get a minimal, ATS-friendly LaTeX resume for PDF export.
             </p>
           </div>
 

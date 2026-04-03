@@ -1,25 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAnthropicClient, LATEX_RESUME_SYSTEM_PROMPT } from "@/lib/anthropic";
+import { stripMarkdownFences } from "@/lib/latexOutput";
 import { NextResponse } from "next/server";
-import { getAnthropicClient, TAILOR_SYSTEM_PROMPT } from "@/lib/anthropic";
 
-type TailorRequestBody = {
+type TailorResumePayload = {
   resumeBullets?: string;
   jobDescription?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
 };
-
-function getMockResult(resumeBullets: string): string {
-  const bullets = resumeBullets
-    .split("\n")
-    .map((b) => b.trim())
-    .filter(Boolean);
-
-  return bullets
-    .map(
-      (_, i) =>
-        `• [MOCK] Tailored bullet ${i + 1} — ATS-optimized and keyword-matched to the job description`
-    )
-    .join("\n");
-}
 
 export async function POST(request: Request) {
   try {
@@ -56,39 +48,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "upgrade required" }, { status: 403 });
     }
 
-    const body = (await request.json()) as TailorRequestBody;
+    const body = (await request.json()) as TailorResumePayload;
     const resumeBullets = body.resumeBullets?.trim();
     const jobDescription = body.jobDescription?.trim();
 
     if (!resumeBullets || !jobDescription) {
       return NextResponse.json(
         { error: "resumeBullets and jobDescription are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
+    const userInputJson = JSON.stringify({
+      name: body.name?.trim() || undefined,
+      email: body.email?.trim() || undefined,
+      phone: body.phone?.trim() || undefined,
+      location: body.location?.trim() || undefined,
+      linkedin: body.linkedin?.trim() || undefined,
+      jobDescription,
+      resumeBullets,
+    });
+
     const anthropic = getAnthropicClient();
 
-const completion = await anthropic.messages.create({
-  model: "claude-sonnet-4-20250514",
-  max_tokens: 1000,
-  system: TAILOR_SYSTEM_PROMPT,
-  messages: [
-    {
-      role: "user",
-      content: `JOB DESCRIPTION:\n${jobDescription}\n\nRESUME BULLETS TO REWRITE:\n${resumeBullets}\n\nRewrite these bullets to match the job description.`,
-    },
-  ],
-});
+    const completion = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: LATEX_RESUME_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Data:\n${userInputJson}\n\nOutput:\nReturn ONLY valid LaTeX code.`,
+        },
+      ],
+    });
 
-const result = completion.content
-  .map((block) => ("text" in block ? block.text : ""))
-  .join("")
-  .trim();
+    const raw = completion.content
+      .map((block) => ("text" in block ? block.text : ""))
+      .join("")
+      .trim();
 
-if (!result) {
-  return NextResponse.json({ error: "empty result from model" }, { status: 500 });
-}
+    const result = stripMarkdownFences(raw);
+
+    if (!result || !result.includes("\\documentclass")) {
+      return NextResponse.json(
+        { error: "model did not return valid LaTeX" },
+        { status: 500 },
+      );
+    }
 
     const { error: updateError } = await supabase
       .from("profiles")

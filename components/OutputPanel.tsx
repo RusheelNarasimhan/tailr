@@ -21,7 +21,7 @@ export default function OutputPanel({ result }: OutputPanelProps) {
     <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]">
-          Tailored Output
+          LaTeX (pdflatex)
         </p>
         <button
           onClick={handleCopy}
