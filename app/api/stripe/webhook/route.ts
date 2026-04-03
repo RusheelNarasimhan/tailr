@@ -29,10 +29,13 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const userId = session.metadata?.userId;
+    const userId = session.metadata?.userId ?? session.client_reference_id;
 
     if (!userId) {
-      return NextResponse.json({ error: "no userId in metadata" }, { status: 400 });
+      return NextResponse.json(
+        { error: "no userId in session metadata or client_reference_id" },
+        { status: 400 },
+      );
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

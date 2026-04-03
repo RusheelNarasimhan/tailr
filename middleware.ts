@@ -10,7 +10,7 @@ function getSupabaseEnv() {
   return { url, anonKey };
 }
 
-async function updateSession(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
   const { url, anonKey } = getSupabaseEnv();
 
@@ -22,37 +22,29 @@ async function updateSession(request: NextRequest) {
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request: { headers: request.headers } });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
       },
     },
   });
 
-  // Important: this refreshes the auth token if needed.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return { supabase, response };
-}
-
-export async function middleware(request: NextRequest) {
-  const { supabase, response } = await updateSession(request);
-
-  if (request.nextUrl.pathname.startsWith("/app")) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/auth/login";
-      redirectUrl.searchParams.set("next", request.nextUrl.pathname);
-      return NextResponse.redirect(redirectUrl);
-    }
+  if (request.nextUrl.pathname.startsWith("/app") && !user) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/auth/login";
+    redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/app/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };
-

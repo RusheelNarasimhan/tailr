@@ -35,18 +35,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "payment not completed" }, { status: 400 });
     }
 
-    const metaUserId = session.metadata?.userId;
-    if (!metaUserId || metaUserId !== user.id) {
-      return NextResponse.json({ error: "session does not belong to this user" }, { status: 403 });
+    const sessionUserId = session.metadata?.userId ?? session.client_reference_id;
+    if (!sessionUserId || sessionUserId !== user.id) {
+      return NextResponse.json(
+        { error: "session does not belong to this user" },
+        { status: 403 },
+      );
     }
 
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from("profiles")
       .update({ is_pro: true })
-      .eq("id", user.id);
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: "no profile row updated; check RLS and that profiles.id matches auth user" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ ok: true });

@@ -77,10 +77,20 @@ function AppPageInner() {
         try {
           const res = await fetch("/api/stripe/confirm", {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
           });
-          if (!res.ok) return;
+          const payload = (await res.json()) as { ok?: boolean; error?: string };
+
+          if (!res.ok) {
+            setToast(
+              payload.error
+                ? `Upgrade could not be confirmed: ${payload.error}`
+                : "Upgrade could not be confirmed. Try refreshing or contact support.",
+            );
+            return;
+          }
 
           const {
             data: { user },
@@ -96,7 +106,7 @@ function AppPageInner() {
           if (data) setProfile(data as Profile);
           router.replace("/app");
         } catch {
-          /* keep query params; user can refresh */
+          setToast("Upgrade confirmation failed. Check your connection and try again.");
         }
       })();
     }
