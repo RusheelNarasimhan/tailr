@@ -62,7 +62,7 @@ export default function Home() {
             Log in
           </Link>
           <Link
-            href="/auth/login"
+            href="/auth/login?mode=signup"
             className="rounded-lg bg-[#c9b87a] px-4 py-2 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90"
           >
             Get Started

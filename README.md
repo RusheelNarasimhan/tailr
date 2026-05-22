@@ -1,40 +1,54 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tailr
 
-## Getting Started
+AI resume tailor — paste bullets and a job description, get three ATS-friendly variants as LaTeX (PDF) and Word (.docx).
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js 14 (App Router)
+- Supabase (auth + Postgres)
+- Anthropic Claude
+- Stripe (one-time Pro upgrade)
+
+## Setup
+
+1. Copy env vars into `.env.local` (see keys below).
+2. Run SQL in Supabase:
+   - `supabase/schema.sql` — profiles + trigger + RLS
+   - `supabase/resume_cache.sql` — generation cache (optional, needs service role)
+3. **Auth:** Supabase → Authentication → Providers → **Email** → enable Email, set **Confirm email** as you prefer (off = instant sign-in after signup).
+4. **Redirect URLs:** Site URL + `http://localhost:3000/auth/callback` (match your dev port).
+5. `npm install` then `npm run dev`.
+
+### Environment variables
+
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Optional: `TAILOR_MOCK_RESPONSE=1` skips the LLM for API testing.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` — local dev
+- `npm run build` — production build
+- `npm run start` — run production server
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Path | Description |
+|------|-------------|
+| `/` | Landing |
+| `/auth/login` | Email + password sign in / sign up |
+| `/app` | Resume tailor (protected) |
+| `/api/tailor` | Generate 3 variants (LaTeX + DOCX) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# tailr
->>>>>>> b9ddbfdb4758c1f832d3bff1fe4365f5188d0c8b
+Deploy on Vercel. Set the same env vars. Register Stripe webhook: `https://yourdomain.com/api/stripe/webhook` (`checkout.session.completed`).
