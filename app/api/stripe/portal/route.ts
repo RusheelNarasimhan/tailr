@@ -1,3 +1,7 @@
+import {
+  ensureBillingCustomer,
+  type ProfileBillingRow,
+} from "@/lib/stripeBilling";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -25,28 +29,49 @@ export async function POST(request: Request) {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("stripe_customer_id")
+      .select("is_pro,stripe_customer_id,stripe_subscription_id")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile?.stripe_customer_id) {
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "profile not found" }, { status: 500 });
+    }
+
+    const row = profile as ProfileBillingRow;
+
+    if (!row.is_pro) {
       return NextResponse.json(
-        { error: "No billing account found. Subscribe to Pro first." },
+        { error: "Subscribe to Pro to manage billing." },
         { status: 400 },
       );
     }
 
     const stripe = getStripe();
+    const { customerId, error: resolveError } = await ensureBillingCustomer(
+      stripe,
+      user.id,
+      user.email,
+      row,
+    );
+
+    if (!customerId) {
+      return NextResponse.json(
+        { error: resolveError ?? "No billing account found." },
+        { status: 400 },
+      );
+    }
+
     const appUrl = resolveAppOrigin(request);
 
     const portal = await stripe.billingPortal.sessions.create({
-      customer: profile.stripe_customer_id,
+      customer: customerId,
       return_url: `${appUrl}/app`,
     });
 
     return NextResponse.json({ url: portal.url });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
+    console.error("[stripe/portal]", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

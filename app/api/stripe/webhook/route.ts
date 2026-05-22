@@ -76,9 +76,18 @@ export async function POST(request: Request) {
             : session.subscription.id;
         await handleSubscription(stripe, subId, userId);
       } else if (session.mode === "payment" && userId) {
-        // Legacy one-time purchasers keep Pro access
         const admin = getAdminSupabase();
-        await admin.from("profiles").update({ is_pro: true }).eq("id", userId);
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : null;
+        await admin
+          .from("profiles")
+          .update({
+            is_pro: true,
+            ...(customerId ? { stripe_customer_id: customerId } : {}),
+          })
+          .eq("id", userId);
       }
     }
 

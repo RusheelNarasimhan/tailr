@@ -1,19 +1,12 @@
+import { getServiceSupabase } from "@/lib/supabase/admin";
 import { syncProfileFromSubscription } from "@/lib/stripeProfile";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 type Body = {
   sessionId?: string;
 };
-
-function getAdminSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return null;
-  return createAdminClient(url, key);
-}
 
 export async function POST(request: Request) {
   try {
@@ -34,7 +27,9 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription", "customer"],
+    });
 
     const sessionUserId = session.metadata?.userId ?? session.client_reference_id;
     if (!sessionUserId || sessionUserId !== user.id) {
@@ -57,8 +52,20 @@ export async function POST(request: Request) {
           ? session.subscription
           : session.subscription.id;
 
-      const subscription = await stripe.subscriptions.retrieve(subId);
-      const admin = getAdminSupabase();
+      const subscription =
+        typeof session.subscription === "object" && session.subscription
+          ? session.subscription
+          : await stripe.subscriptions.retrieve(subId);
+
+      const admin = getServiceSupabase();
+      const customerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : typeof session.customer === "object" && session.customer
+            ? session.customer.id
+            : typeof subscription.customer === "string"
+              ? subscription.customer
+              : subscription.customer.id;
 
       if (admin) {
         const { error: syncError } = await syncProfileFromSubscription(
@@ -70,10 +77,16 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: syncError }, { status: 500 });
         }
       } else {
-        const active = subscription.status === "active" || subscription.status === "trialing";
+        const active =
+          subscription.status === "active" || subscription.status === "trialing";
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ is_pro: active })
+          .update({
+            is_pro: active,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscription.id,
+            subscription_status: subscription.status,
+          })
           .eq("id", user.id);
         if (updateError) {
           return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -84,9 +97,19 @@ export async function POST(request: Request) {
     }
 
     if (session.mode === "payment" && session.payment_status === "paid") {
+      const customerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : typeof session.customer === "object" && session.customer
+            ? session.customer.id
+            : null;
+
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ is_pro: true })
+        .update({
+          is_pro: true,
+          ...(customerId ? { stripe_customer_id: customerId } : {}),
+        })
         .eq("id", user.id)
         .select("id")
         .maybeSingle();
