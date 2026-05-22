@@ -1,5 +1,6 @@
 "use client";
 
+import { getProPriceLabel, getProPriceShort } from "@/lib/pricing";
 import { useState } from "react";
 
 type UpgradeModalProps = {
@@ -52,7 +53,8 @@ export default function UpgradeModal({
           <p className="section-label">Account</p>
           <h2 className="mt-2 text-xl font-semibold">You&apos;re on Pro</h2>
           <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
-            Unlimited tailoring is active on your account.
+            Your Pro subscription is active. Manage billing anytime from the app
+            menu.
           </p>
           <button type="button" onClick={onClose} className="btn-primary mt-6 w-full">
             Continue tailoring
@@ -72,8 +74,8 @@ export default function UpgradeModal({
         <p className="section-label">Upgrade</p>
         <h2 className="mt-2 text-xl font-semibold">Unlock unlimited tailoring</h2>
         <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
-          You&apos;ve used your three free runs. Upgrade once—no subscription—and
-          tailor as many resumes as you need.
+          You&apos;ve used your three free runs. Subscribe to Pro for unlimited
+          tailoring—cancel anytime from your billing portal.
         </p>
 
         <ul className="mt-6 space-y-2 text-sm text-[#f0ede6]/65">
@@ -84,13 +86,13 @@ export default function UpgradeModal({
             <span className="text-[#c9b87a]">✓</span> All templates & exports
           </li>
           <li className="flex gap-2">
-            <span className="text-[#c9b87a]">✓</span> Lifetime access — $5 once
+            <span className="text-[#c9b87a]">✓</span> Cancel anytime via billing portal
           </li>
         </ul>
 
         <div className="mt-6 rounded-xl border border-[#c9b87a]/30 bg-[#c9b87a]/8 px-5 py-4">
-          <p className="text-3xl font-bold text-[#c9b87a]">$5</p>
-          <p className="text-xs text-[#f0ede6]/45">One-time payment via Stripe</p>
+          <p className="text-3xl font-bold text-[#c9b87a]">{getProPriceShort()}</p>
+          <p className="text-xs text-[#f0ede6]/45">{getProPriceLabel()} · billed monthly</p>
         </div>
 
         {error ? (
@@ -106,7 +108,7 @@ export default function UpgradeModal({
             disabled={loading}
             className="btn-primary w-full disabled:opacity-60"
           >
-            {loading ? "Redirecting to checkout…" : "Upgrade now"}
+            {loading ? "Redirecting to checkout…" : `Subscribe — ${getProPriceLabel()}`}
           </button>
           <button
             type="button"

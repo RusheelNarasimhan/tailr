@@ -4,6 +4,7 @@ import Link from "next/link";
 import MarketingNav from "@/components/MarketingNav";
 import SiteFooter from "@/components/SiteFooter";
 import { useFadeIn } from "@/lib/hooks/useFadeIn";
+import { getProPriceLabel, getProPriceShort } from "@/lib/pricing";
 
 const FEATURES = [
   {
@@ -49,7 +50,7 @@ const FAQ = [
   },
   {
     q: "How is pricing structured?",
-    a: "Three free tailoring runs, then a one-time $5 Pro upgrade for unlimited use. No monthly subscription.",
+    a: `Three free tailoring runs, then Pro at ${getProPriceLabel()} for unlimited use. Cancel anytime from the billing portal.`,
   },
   {
     q: "How long should my resume be?",
@@ -117,7 +118,7 @@ export default function Home() {
           <span className="hidden sm:inline text-white/15">|</span>
           <span>Google & email sign-in</span>
           <span className="hidden sm:inline text-white/15">|</span>
-          <span>One-time Pro — $5</span>
+          <span>Pro from {getProPriceLabel()}</span>
         </div>
       </section>
 
@@ -183,7 +184,7 @@ export default function Home() {
             Simple, honest pricing
           </h2>
           <p className="mt-4 text-center text-sm text-[#f0ede6]/45">
-            No subscription traps. Pay once if you need more than three runs.
+            Start free. Subscribe only when you need unlimited runs—cancel anytime.
           </p>
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2">
@@ -215,8 +216,10 @@ export default function Home() {
                 Best value
               </div>
               <p className="text-sm font-medium text-[#c9b87a]">Pro</p>
-              <p className="mt-4 text-5xl font-bold tracking-tight text-[#c9b87a]">$5</p>
-              <p className="mt-1 text-sm text-[#f0ede6]/40">One-time · lifetime access</p>
+              <p className="mt-4 text-5xl font-bold tracking-tight text-[#c9b87a]">
+                {getProPriceShort()}
+              </p>
+              <p className="mt-1 text-sm text-[#f0ede6]/40">per month · cancel anytime</p>
               <ul className="mt-8 space-y-3 text-sm text-[#f0ede6]/65">
                 <li className="flex gap-2">
                   <span className="text-[#c9b87a]">✓</span> Unlimited tailoring
@@ -225,10 +228,10 @@ export default function Home() {
                   <span className="text-[#c9b87a]">✓</span> All layout templates
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-[#c9b87a]">✓</span> Priority exports
+                  <span className="text-[#c9b87a]">✓</span> LaTeX & Word exports
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-[#c9b87a]">✓</span> No recurring fees
+                  <span className="text-[#c9b87a]">✓</span> Manage billing in Stripe portal
                 </li>
               </ul>
               <Link

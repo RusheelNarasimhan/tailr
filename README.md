@@ -7,7 +7,7 @@ AI resume tailor — paste bullets and a job description, get three ATS-friendly
 - Next.js 14 (App Router)
 - Supabase (auth + Postgres)
 - Anthropic Claude
-- Stripe (one-time Pro upgrade)
+- Stripe (monthly Pro subscription)
 
 ## Setup
 
@@ -15,6 +15,7 @@ AI resume tailor — paste bullets and a job description, get three ATS-friendly
 2. Run SQL in Supabase:
    - `supabase/schema.sql` — profiles + trigger + RLS
    - `supabase/resume_cache.sql` — generation cache (optional; needs `SUPABASE_SERVICE_ROLE_KEY`)
+   - `supabase/subscription.sql` — Stripe subscription columns on `profiles` (if not using fresh `schema.sql`)
 3. **Auth:**
    - **Email:** Authentication → Providers → Email → enable; set **Confirm email** as you prefer (off = instant sign-in after signup).
    - **Google:** Follow [docs/google-auth-setup.md](docs/google-auth-setup.md) (Google Cloud OAuth client + Supabase Google provider).
@@ -25,8 +26,10 @@ AI resume tailor — paste bullets and a job description, get three ATS-friendly
 
 See `.env.example`. Important:
 
+- `STRIPE_PRO_PRICE_ID` — monthly price ID from Stripe (`price_...`). Setup: [docs/stripe-subscription-setup.md](docs/stripe-subscription-setup.md)
+- `NEXT_PUBLIC_PRO_PRICE_MONTHLY` — display price in UI (e.g. `9` for $9/mo)
 - `NEXT_PUBLIC_APP_URL` must be the **origin only** (e.g. `http://localhost:3000`), not `/app`.
-- `SUPABASE_SERVICE_ROLE_KEY` enables generation cache (model JSON only; exports re-render with your profile).
+- `SUPABASE_SERVICE_ROLE_KEY` enables generation cache and subscription webhooks.
 - `TAILOR_MOCK_RESPONSE=1` works only in **development** (skips the LLM).
 
 ## Scripts
@@ -45,9 +48,10 @@ See `.env.example`. Important:
 | `/auth/update-password` | Set new password after reset email |
 | `/app` | Resume tailor (protected) |
 | `/api/tailor` | Generate 3 variants (LaTeX + DOCX) |
-| `/api/stripe/checkout` | Start Pro checkout |
-| `/api/stripe/confirm` | Confirm payment after redirect (local dev) |
-| `/api/stripe/webhook` | Stripe webhook (production) |
+| `/api/stripe/checkout` | Start Pro subscription checkout |
+| `/api/stripe/confirm` | Confirm subscription after redirect (local dev) |
+| `/api/stripe/portal` | Stripe billing portal (manage / cancel) |
+| `/api/stripe/webhook` | Stripe webhook (subscription lifecycle) |
 
 ## Resume layouts
 
@@ -60,6 +64,8 @@ Drafts auto-save in the browser (`localStorage`) so bullets and job text persist
 
 ## Deploy
 
-Deploy on Vercel. Set the same env vars. Register Stripe webhook: `https://yourdomain.com/api/stripe/webhook` (`checkout.session.completed`).
+Deploy on Vercel. Set the same env vars. Configure Stripe per [docs/stripe-subscription-setup.md](docs/stripe-subscription-setup.md).
 
-For local Pro upgrades, returning from Stripe hits `/api/stripe/confirm` (webhooks do not reach localhost).
+Webhook URL: `https://yourdomain.com/api/stripe/webhook` (subscription + checkout events).
+
+For local testing, use Stripe CLI or `/api/stripe/confirm` after checkout redirect.

@@ -24,6 +24,7 @@ function AppPageInner() {
   const [output, setOutput] = useState<TailorResult | null>(null);
   const [tailorLoading, setTailorLoading] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const header = useFadeIn(50);
@@ -62,7 +63,7 @@ function AppPageInner() {
             return;
           }
 
-          setToast("You're now on Pro — unlimited tailoring unlocked");
+          setToast("Pro subscription active — unlimited tailoring unlocked");
           toastTimer = setTimeout(() => setToast(null), 4000);
 
           const {
@@ -152,6 +153,25 @@ function AppPageInner() {
     void fetchProfile();
   }, [supabase]);
 
+  async function handleManageBilling() {
+    setBillingLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setToast(data.error ?? "Could not open billing portal.");
+      setTimeout(() => setToast(null), 5000);
+    } catch {
+      setToast("Billing portal unavailable. Try again later.");
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
   function handleResult(payload: TailorResult) {
     setOutput(payload);
 
@@ -171,6 +191,7 @@ function AppPageInner() {
       <Navbar
         isPro={profile?.is_pro}
         onUpgrade={() => setShowUpgrade(true)}
+        onManageBilling={profile?.is_pro ? handleManageBilling : undefined}
       />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8 sm:py-10">
@@ -196,6 +217,8 @@ function AppPageInner() {
               usesCount={profile.uses_count}
               isPro={profile.is_pro}
               onUpgrade={() => setShowUpgrade(true)}
+              onManageBilling={profile.is_pro ? handleManageBilling : undefined}
+              billingLoading={billingLoading}
             />
           ) : null}
         </div>

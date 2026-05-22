@@ -10,9 +10,10 @@ import { useMemo } from "react";
 type NavbarProps = {
   isPro?: boolean;
   onUpgrade?: () => void;
+  onManageBilling?: () => void;
 };
 
-export default function Navbar({ isPro, onUpgrade }: NavbarProps) {
+export default function Navbar({ isPro, onUpgrade, onManageBilling }: NavbarProps) {
   const { user, loading } = useUser();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -30,9 +31,20 @@ export default function Navbar({ isPro, onUpgrade }: NavbarProps) {
           {!loading && user && (
             <>
               {isPro ? (
-                <span className="hidden rounded-full border border-[#c9b87a]/35 bg-[#c9b87a]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#c9b87a] sm:inline">
-                  Pro
-                </span>
+                <>
+                  <span className="hidden rounded-full border border-[#c9b87a]/35 bg-[#c9b87a]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#c9b87a] sm:inline">
+                    Pro
+                  </span>
+                  {onManageBilling ? (
+                    <button
+                      type="button"
+                      onClick={onManageBilling}
+                      className="hidden text-xs text-[#f0ede6]/50 transition hover:text-[#f0ede6] md:inline"
+                    >
+                      Billing
+                    </button>
+                  ) : null}
+                </>
               ) : onUpgrade ? (
                 <button
                   type="button"

@@ -1,6 +1,8 @@
+import { getProPriceLabel } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 
 function resolveAppOrigin(request: Request): string {
   const origin = request.headers.get("origin");
@@ -23,6 +25,17 @@ function resolveAppOrigin(request: Request): string {
 
 export async function POST(request: Request) {
   try {
+    const priceId = process.env.STRIPE_PRO_PRICE_ID?.trim();
+    if (!priceId) {
+      return NextResponse.json(
+        {
+          error:
+            "STRIPE_PRO_PRICE_ID is not configured. Create a monthly price in Stripe and add it to env.",
+        },
+        { status: 500 },
+      );
+    }
+
     const supabase = createClient();
 
     const {
@@ -34,43 +47,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: existingProfile } = await supabase
+    const { data: profile } = await supabase
       .from("profiles")
-      .select("is_pro")
+      .select("is_pro, stripe_customer_id, subscription_status")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingProfile?.is_pro === true) {
+    if (profile?.is_pro === true) {
       return NextResponse.json({ alreadyPro: true as const });
     }
 
     const appUrl = resolveAppOrigin(request);
     const stripe = getStripe();
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      mode: "subscription",
       client_reference_id: user.id,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "Tailr Pro",
-              description: "Unlimited resume tailoring forever",
-            },
-            unit_amount: 500,
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        userId: user.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      metadata: { userId: user.id },
+      subscription_data: {
+        metadata: { userId: user.id },
       },
       success_url: `${appUrl}/app?upgraded=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app`,
-    });
+      ...(profile?.stripe_customer_id
+        ? { customer: profile.stripe_customer_id }
+        : user.email
+          ? { customer_email: user.email }
+          : {}),
+    };
 
-    return NextResponse.json({ url: session.url });
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    return NextResponse.json({
+      url: session.url,
+      plan: getProPriceLabel(),
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

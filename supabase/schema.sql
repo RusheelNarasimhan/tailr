@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email TEXT,
   is_pro BOOLEAN NOT NULL DEFAULT FALSE,
   uses_count INTEGER NOT NULL DEFAULT 0,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  subscription_status TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -1,10 +1,19 @@
+import { syncProfileFromSubscription } from "@/lib/stripeProfile";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 type Body = {
   sessionId?: string;
 };
+
+function getAdminSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createAdminClient(url, key);
+}
 
 export async function POST(request: Request) {
   try {
@@ -27,14 +36,6 @@ export async function POST(request: Request) {
     const stripe = getStripe();
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    if (session.mode !== "payment") {
-      return NextResponse.json({ error: "invalid session mode" }, { status: 400 });
-    }
-
-    if (session.payment_status !== "paid") {
-      return NextResponse.json({ error: "payment not completed" }, { status: 400 });
-    }
-
     const sessionUserId = session.metadata?.userId ?? session.client_reference_id;
     if (!sessionUserId || sessionUserId !== user.id) {
       return NextResponse.json(
@@ -43,25 +44,61 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update({ is_pro: true })
-      .eq("id", user.id)
-      .select("id")
-      .maybeSingle();
+    if (session.mode === "subscription") {
+      if (!session.subscription) {
+        return NextResponse.json(
+          { error: "subscription not found on session" },
+          { status: 400 },
+        );
+      }
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      const subId =
+        typeof session.subscription === "string"
+          ? session.subscription
+          : session.subscription.id;
+
+      const subscription = await stripe.subscriptions.retrieve(subId);
+      const admin = getAdminSupabase();
+
+      if (admin) {
+        const { error: syncError } = await syncProfileFromSubscription(
+          admin,
+          user.id,
+          subscription,
+        );
+        if (syncError) {
+          return NextResponse.json({ error: syncError }, { status: 500 });
+        }
+      } else {
+        const active = subscription.status === "active" || subscription.status === "trialing";
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ is_pro: active })
+          .eq("id", user.id);
+        if (updateError) {
+          return NextResponse.json({ error: updateError.message }, { status: 500 });
+        }
+      }
+
+      return NextResponse.json({ ok: true, status: subscription.status });
     }
 
-    if (!updated) {
-      return NextResponse.json(
-        { error: "no profile row updated; check RLS and that profiles.id matches auth user" },
-        { status: 500 },
-      );
+    if (session.mode === "payment" && session.payment_status === "paid") {
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ is_pro: true })
+        .eq("id", user.id)
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ error: "checkout not completed" }, { status: 400 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
