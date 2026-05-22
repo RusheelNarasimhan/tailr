@@ -170,10 +170,15 @@ function AppPageInner() {
       const data = (await res.json()) as {
         url?: string;
         error?: string;
-        notice?: string;
+        legacyPro?: boolean;
+        message?: string;
       };
+      if (data.legacyPro && data.message) {
+        setToast(data.message);
+        setTimeout(() => setToast(null), 12000);
+        return;
+      }
       if (data.url) {
-        if (data.notice) setToast(data.notice);
         window.location.href = data.url;
         return;
       }

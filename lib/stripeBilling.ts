@@ -208,6 +208,7 @@ export async function ensureBillingCustomer(
   customerId: string | null;
   error: string | null;
   notice: string | null;
+  hasActiveSubscription: boolean;
 }> {
   let { customerId, subscription } = await resolveStripeCustomerId(
     stripe,
@@ -231,19 +232,27 @@ export async function ensureBillingCustomer(
         ? "No Stripe billing profile is linked. Use Upgrade to subscribe, or contact support."
         : "Subscribe to Pro first.",
       notice: null,
+      hasActiveSubscription: false,
     };
   }
 
   const persistError = await persistBillingLink(userId, customerId, subscription);
   if (persistError) {
-    return { customerId, error: persistError, notice: null };
+    return {
+      customerId,
+      error: persistError,
+      notice: null,
+      hasActiveSubscription: false,
+    };
   }
 
-  if (profile.is_pro && !(await hasActiveSubscription(stripe, customerId))) {
+  const active = await hasActiveSubscription(stripe, customerId);
+
+  if (profile.is_pro && !active) {
     notice =
       notice ??
       "You have Pro access, but no active monthly subscription was found in Stripe. The portal can update payment details; use Upgrade if you need to start a new subscription.";
   }
 
-  return { customerId, error: null, notice };
+  return { customerId, error: null, notice, hasActiveSubscription: active };
 }

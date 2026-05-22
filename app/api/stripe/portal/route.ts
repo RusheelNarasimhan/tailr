@@ -49,18 +49,22 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const { customerId, error: resolveError, notice } = await ensureBillingCustomer(
-      stripe,
-      user.id,
-      user.email,
-      profile,
-    );
+    const { customerId, error: resolveError, hasActiveSubscription } =
+      await ensureBillingCustomer(stripe, user.id, user.email, profile);
 
     if (!customerId) {
       return NextResponse.json(
         { error: resolveError ?? "No billing account found." },
         { status: 400 },
       );
+    }
+
+    if (!hasActiveSubscription) {
+      return NextResponse.json({
+        legacyPro: true as const,
+        message:
+          "Your Pro access is not tied to a monthly Stripe subscription (for example a one-time upgrade). There is nothing to cancel in Stripe. Contact support if you want Pro removed, or subscribe monthly on a new checkout when available.",
+      });
     }
 
     const appUrl = resolveAppOrigin(request);
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
       return_url: `${appUrl}/app`,
     });
 
-    return NextResponse.json({ url: portal.url, notice });
+    return NextResponse.json({ url: portal.url });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     console.error("[stripe/portal]", message);

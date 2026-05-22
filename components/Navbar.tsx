@@ -46,9 +46,9 @@ export default function Navbar({
                       type="button"
                       onClick={onManageSubscription}
                       disabled={billingLoading}
-                      className="hidden text-xs text-[#f0ede6]/50 transition hover:text-[#f0ede6] disabled:opacity-50 md:inline"
+                      className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-[#f0ede6]/70 transition hover:border-white/20 hover:text-[#f0ede6] disabled:opacity-50 sm:px-3"
                     >
-                      {billingLoading ? "Opening…" : "Subscription"}
+                      {billingLoading ? "Opening…" : "Manage subscription"}
                     </button>
                   ) : null}
                 </>

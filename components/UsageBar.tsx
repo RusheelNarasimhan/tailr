@@ -43,14 +43,19 @@ export default function UsageBar({
           </span>
         </div>
         {onManageSubscription ? (
-          <button
-            type="button"
-            onClick={onManageSubscription}
-            disabled={billingLoading}
-            className="text-xs text-[#f0ede6]/45 underline transition hover:text-[#f0ede6] disabled:opacity-50"
-          >
-            {billingLoading ? "Opening…" : "Manage subscription"}
-          </button>
+          <div className="flex flex-col items-end gap-0.5 sm:items-start">
+            <button
+              type="button"
+              onClick={onManageSubscription}
+              disabled={billingLoading}
+              className="text-xs font-medium text-[#c9b87a] underline transition hover:text-[#f0ede6] disabled:opacity-50"
+            >
+              {billingLoading ? "Opening…" : "Manage subscription"}
+            </button>
+            <p className="text-[10px] text-[#f0ede6]/40">
+              Cancel or update payment in Stripe
+            </p>
+          </div>
         ) : null}
       </div>
     );
