@@ -15,8 +15,10 @@ AI resume tailor — paste bullets and a job description, get three ATS-friendly
 2. Run SQL in Supabase:
    - `supabase/schema.sql` — profiles + trigger + RLS
    - `supabase/resume_cache.sql` — generation cache (optional; needs `SUPABASE_SERVICE_ROLE_KEY`)
-3. **Auth:** Supabase → Authentication → Providers → **Email** → enable Email, set **Confirm email** as you prefer (off = instant sign-in after signup).
-4. **Redirect URLs:** Site URL + `http://localhost:3000/auth/callback` (match your dev port).
+3. **Auth:**
+   - **Email:** Authentication → Providers → Email → enable; set **Confirm email** as you prefer (off = instant sign-in after signup).
+   - **Google:** Follow [docs/google-auth-setup.md](docs/google-auth-setup.md) (Google Cloud OAuth client + Supabase Google provider).
+4. **Redirect URLs:** Authentication → URL Configuration → add `http://localhost:3000/auth/callback` and your production `/auth/callback` URL.
 5. `npm install` then `npm run dev`.
 
 ### Environment variables
@@ -38,7 +40,8 @@ See `.env.example`. Important:
 | Path | Description |
 |------|-------------|
 | `/` | Landing |
-| `/auth/login` | Email + password sign in / sign up |
+| `/auth/login` | Google OAuth + email/password sign in / sign up |
+| `/auth/callback` | OAuth / email confirmation callback |
 | `/auth/update-password` | Set new password after reset email |
 | `/app` | Resume tailor (protected) |
 | `/api/tailor` | Generate 3 variants (LaTeX + DOCX) |

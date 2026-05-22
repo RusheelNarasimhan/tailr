@@ -1,6 +1,9 @@
 import { AuthError } from "@supabase/supabase-js";
 
-export function formatAuthError(err: unknown, context: "signin" | "signup"): string {
+export function formatAuthError(
+  err: unknown,
+  context: "signin" | "signup" | "oauth",
+): string {
   if (err instanceof AuthError) {
     if (err.code === "email_not_confirmed") {
       return "Confirm your email first — check your inbox and spam folder, then sign in again.";
@@ -14,6 +17,9 @@ export function formatAuthError(err: unknown, context: "signin" | "signup"): str
         err.code === "invalid_credentials")
     ) {
       return "Wrong email or password. If you just signed up, confirm your email first. If you used magic link before, use Forgot password to set a password.";
+    }
+    if (context === "oauth") {
+      return err.message || "Google sign-in failed. Try again or use email.";
     }
   }
 

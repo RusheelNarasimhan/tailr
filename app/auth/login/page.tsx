@@ -1,19 +1,17 @@
 "use client";
 
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 import { formatAuthError } from "@/lib/authErrors";
+import {
+  buildAuthCallbackUrl,
+  getRedirectPathFromSearchParams,
+} from "@/lib/authRedirect";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
 type AuthMode = "signin" | "signup";
-
-function getRedirectPath(searchParams: URLSearchParams): string {
-  const next = searchParams.get("next");
-  if (next) return decodeURIComponent(next);
-  if (searchParams.get("intent") === "upgrade") return "/app?checkout=true";
-  return "/app";
-}
 
 function LoginPageInner() {
   const supabase = useMemo(() => createClient(), []);
@@ -30,6 +28,7 @@ function LoginPageInner() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
 
   const origin =
@@ -37,15 +36,24 @@ function LoginPageInner() {
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
+  const redirectPath = getRedirectPathFromSearchParams(searchParams);
+
+  useEffect(() => {
+    const oauthMsg = searchParams.get("message");
+    if (searchParams.get("error") === "oauth" && oauthMsg) {
+      setError(oauthMsg);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     async function checkUser() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) router.replace(getRedirectPath(searchParams));
+      if (user) router.replace(redirectPath);
     }
     void checkUser();
-  }, [supabase, router, searchParams]);
+  }, [supabase, router, redirectPath]);
 
   function switchMode(next: AuthMode) {
     setMode(next);
@@ -53,6 +61,34 @@ function LoginPageInner() {
     setStatus(null);
     setPassword("");
     setConfirmPassword("");
+  }
+
+  async function handleGoogleSignIn() {
+    if (googleLoading || loading) return;
+
+    setGoogleLoading(true);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const redirectTo = buildAuthCallbackUrl(origin, redirectPath);
+
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: "online",
+            prompt: "select_account",
+          },
+        },
+      });
+
+      if (oauthError) throw oauthError;
+    } catch (err) {
+      setError(formatAuthError(err, "oauth"));
+      setGoogleLoading(false);
+    }
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -67,7 +103,7 @@ function LoginPageInner() {
     setError(null);
     setStatus(null);
 
-    const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`;
+    const redirectTo = buildAuthCallbackUrl(origin, "/auth/update-password");
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       trimmedEmail,
@@ -87,7 +123,7 @@ function LoginPageInner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
+    if (loading || googleLoading) return;
 
     setError(null);
     setStatus(null);
@@ -114,7 +150,7 @@ function LoginPageInner() {
     setLoading(true);
 
     try {
-      const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(getRedirectPath(searchParams))}`;
+      const redirectTo = buildAuthCallbackUrl(origin, redirectPath);
 
       if (mode === "signup") {
         const { data, error: signUpError } = await supabase.auth.signUp({
@@ -127,14 +163,14 @@ function LoginPageInner() {
 
         if (data.user?.identities?.length === 0) {
           setError(
-            "This email is already registered. Sign in, or use Forgot password if you never set one.",
+            "This email is already registered. Sign in with Google or email, or use Forgot password.",
           );
           switchMode("signin");
           return;
         }
 
         if (data.session) {
-          router.replace(getRedirectPath(searchParams));
+          router.replace(redirectPath);
           return;
         }
 
@@ -154,13 +190,15 @@ function LoginPageInner() {
 
       if (signInError) throw signInError;
 
-      router.replace(getRedirectPath(searchParams));
+      router.replace(redirectPath);
     } catch (err) {
       setError(formatAuthError(err, mode));
     } finally {
       setLoading(false);
     }
   }
+
+  const busy = loading || googleLoading;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[#f0ede6]">
@@ -205,10 +243,27 @@ function LoginPageInner() {
           </h1>
           <p className="mt-2 text-sm text-[#f0ede6]/50">
             {mode === "signin"
-              ? "Sign in with your email and password."
-              : "Start tailoring resumes in seconds."}
+              ? "Sign in with Google or your email and password."
+              : "Use Google for instant access, or create an email account."}
           </p>
         </div>
+
+        {!forgotMode ? (
+          <div className="mb-6 space-y-4">
+            <GoogleSignInButton
+              onClick={handleGoogleSignIn}
+              loading={googleLoading}
+              disabled={loading}
+            />
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/10" />
+              <span className="text-xs uppercase tracking-widest text-[#f0ede6]/35">
+                or email
+              </span>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+          </div>
+        ) : null}
 
         <form
           onSubmit={forgotMode ? handleForgotPassword : handleSubmit}
@@ -294,7 +349,7 @@ function LoginPageInner() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                disabled={loading}
+                disabled={busy}
                 className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
               >
                 {loading ? "Sending…" : "Send reset link"}
@@ -310,14 +365,14 @@ function LoginPageInner() {
           ) : (
             <button
               type="submit"
-              disabled={loading}
+              disabled={busy}
               className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
             >
               {loading
                 ? "Please wait…"
                 : mode === "signin"
-                  ? "Sign in"
-                  : "Create account"}
+                  ? "Sign in with email"
+                  : "Create account with email"}
             </button>
           )}
         </form>
@@ -333,14 +388,27 @@ function LoginPageInner() {
             {status}
           </div>
         ) : null}
+
+        <p className="mt-8 text-center text-xs text-[#f0ede6]/35">
+          Google sign-in uses Supabase Auth. Enable the Google provider in your
+          Supabase project (see README).
+        </p>
       </div>
+    </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-sm text-[#f0ede6]/50">
+      Loading…
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<LoginFallback />}>
       <LoginPageInner />
     </Suspense>
   );
