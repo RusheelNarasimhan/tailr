@@ -33,6 +33,7 @@ type TailorRequestBody = {
   school?: string;
   degree?: string;
   graduationDate?: string;
+  preferOnePage?: boolean;
 };
 
 function toBulletArray(raw: string | string[] | undefined): string[] {
@@ -126,6 +127,8 @@ export async function POST(request: Request) {
       );
     }
 
+    const preferOnePage = body.preferOnePage !== false;
+
     const optionalProfile: OptionalProfileInput = {
       name: body.name?.trim(),
       email: body.email?.trim(),
@@ -169,6 +172,7 @@ export async function POST(request: Request) {
       resumeBullets,
       template,
       optionalProfile,
+      preferOnePage,
     );
     const cachedModel = await getCachedTailor(cacheKey);
     if (cachedModel) {
@@ -176,6 +180,7 @@ export async function POST(request: Request) {
         cachedModel,
         template,
         optionalProfile,
+        preferOnePage,
       );
       const uses_count = await incrementUses(
         supabase,
@@ -198,6 +203,7 @@ export async function POST(request: Request) {
       jobDescription,
       resumeBullets,
       optionalProfile,
+      preferOnePage,
     });
 
     if (process.env.NODE_ENV === "development") {
@@ -236,7 +242,7 @@ export async function POST(request: Request) {
     }
 
     const modelPayload: CachedTailorModelPayload = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       template,
       keywords: {
         skills: parsed.keywords.skills,
@@ -254,6 +260,7 @@ export async function POST(request: Request) {
       modelPayload,
       template,
       optionalProfile,
+      preferOnePage,
     );
 
     const responseBody = buildSuccessBody(

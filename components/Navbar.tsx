@@ -24,6 +24,12 @@ export default function Navbar() {
       <div className="flex items-center gap-4">
         {!loading && user && (
           <>
+            <Link
+              href="/app"
+              className="text-xs text-[#f0ede6]/60 transition hover:text-[#f0ede6]"
+            >
+              Tailor
+            </Link>
             <span className="hidden text-xs text-[#f0ede6]/50 sm:block">
               {user.email}
             </span>

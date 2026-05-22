@@ -51,6 +51,9 @@ See `.env.example`. Important:
 - **Compact** — dense, targets 1–2 pages; trims long content automatically.
 - **Modern** — balanced spacing.
 - **Academic** — section-heavy.
+- **Prefer ~1 page** (checkbox in app) — tighter trim and shorter LLM sections.
+
+Drafts auto-save in the browser (`localStorage`) so bullets and job text persist across refreshes.
 
 ## Deploy
 

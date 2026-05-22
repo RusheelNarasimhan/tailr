@@ -191,6 +191,10 @@ function AppPageInner() {
         prev ? { ...prev, uses_count: payload.uses_count! } : prev,
       );
     }
+
+    requestAnimationFrame(() => {
+      outputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   return (
@@ -214,7 +218,11 @@ function AppPageInner() {
           {profileLoading ? (
             <div className="h-8 w-36 animate-pulse rounded-lg bg-white/5" />
           ) : profile ? (
-            <UsageBar usesCount={profile.uses_count} isPro={profile.is_pro} />
+            <UsageBar
+              usesCount={profile.uses_count}
+              isPro={profile.is_pro}
+              onUpgrade={() => setShowUpgrade(true)}
+            />
           ) : null}
         </div>
 
@@ -259,9 +267,17 @@ function AppPageInner() {
   );
 }
 
+function AppPageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-sm text-[#f0ede6]/50">
+      Loading…
+    </div>
+  );
+}
+
 export default function AppPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<AppPageFallback />}>
       <AppPageInner />
     </Suspense>
   );

@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import type { LatexTemplateId, OptionalProfileInput } from "@/types/resume";
 
-export const CACHE_SCHEMA_VERSION = 2;
+export const CACHE_SCHEMA_VERSION = 3;
 
 export type CachedTailorModelPayload = {
   schemaVersion: number;
@@ -41,12 +41,14 @@ export function tailorInputHash(
   resumeBullets: string[],
   template: LatexTemplateId,
   optionalProfile?: OptionalProfileInput,
+  preferOnePage?: boolean,
 ): string {
   const normalized = JSON.stringify({
     schemaVersion: CACHE_SCHEMA_VERSION,
     jobDescription: jobDescription.trim(),
     resumeBullets: resumeBullets.map((b) => b.trim()).filter(Boolean),
     template,
+    preferOnePage: Boolean(preferOnePage),
     profile: profileForHash(optionalProfile),
   });
   return crypto.createHash("sha256").update(normalized, "utf8").digest("hex");

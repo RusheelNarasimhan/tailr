@@ -46,12 +46,30 @@ function truncate(text: string, max: number): string {
   return `${t.slice(0, max - 1).trim()}…`;
 }
 
+function effectiveLimits(
+  template: LatexTemplateId,
+  preferOnePage?: boolean,
+): TrimLimits {
+  const base = LIMITS[template];
+  if (!preferOnePage) return base;
+  return {
+    summaryMax: Math.min(280, Math.floor(base.summaryMax * 0.65)),
+    maxEducation: 1,
+    maxSkillGroups: Math.min(5, base.maxSkillGroups),
+    maxItemsPerSkill: Math.min(8, base.maxItemsPerSkill),
+    maxJobFit: 3,
+    maxRoles: Math.min(3, base.maxRoles),
+    maxBulletsPerRole: Math.min(4, base.maxBulletsPerRole - 1),
+  };
+}
+
 /** Keeps exports within ~1–2 pages by capping section sizes per template. */
 export function trimResumeForTemplate(
   data: ResumeData,
   template: LatexTemplateId,
+  preferOnePage?: boolean,
 ): ResumeData {
-  const L = LIMITS[template];
+  const L = effectiveLimits(template, preferOnePage);
 
   return {
     ...data,

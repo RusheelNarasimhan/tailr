@@ -55,11 +55,16 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
     );
   }
 
-  if (!output?.variants?.length || !output.variants[0]?.latex?.trim()) {
+  if (
+    !output ||
+    !output.variants?.length ||
+    !output.variants[0]?.latex?.trim()
+  ) {
     return null;
   }
 
-  const v = output.variants[active] ?? output.variants[0];
+  const result = output;
+  const v = result.variants[active] ?? result.variants[0];
   const hasDocx = v.docx.length > 0;
 
   async function handleCopyLatex() {
@@ -68,9 +73,9 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function handleDownloadDocx() {
-    if (!hasDocx) return;
-    const binary = atob(v.docx);
+  function downloadDocxVariant(variant: TailorVariant, index: number) {
+    if (!variant.docx.length) return;
+    const binary = atob(variant.docx);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
@@ -81,18 +86,33 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tailr-resume-v${active + 1}.docx`;
+    const slug = variant.label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 32);
+    a.download = `tailr-${slug || `variant-${index + 1}`}.docx`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
+  function handleDownloadDocx() {
+    downloadDocxVariant(v, active);
+  }
+
+  function handleDownloadAllDocx() {
+    result.variants.forEach((variant, i) => {
+      setTimeout(() => downloadDocxVariant(variant, i), i * 350);
+    });
+  }
+
   const kwCount =
-    output.keywords.skills.length +
-    output.keywords.tools.length +
-    output.keywords.actionVerbs.length;
+    result.keywords.skills.length +
+    result.keywords.tools.length +
+    result.keywords.actionVerbs.length;
 
   const pageHint =
-    output.template === "compact"
+    result.template === "compact"
       ? "Compact layout targets 1–2 pages when compiled."
       : "Modern/Academic may run closer to 2 pages with long content.";
 
@@ -103,28 +123,28 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
           <span className="text-xs font-medium uppercase tracking-wider text-[#c9b87a]/80">
             Match score
           </span>
-          <span className="text-lg font-bold text-[#c9b87a]">{output.quality.score}</span>
+          <span className="text-lg font-bold text-[#c9b87a]">{result.quality.score}</span>
           <span className="text-xs text-[#f0ede6]/50">/100</span>
         </div>
-        {output.cached ? (
+        {result.cached ? (
           <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
             Cached (instant)
           </span>
         ) : null}
         <span className="text-xs text-[#f0ede6]/45">
-          Template: <span className="text-[#f0ede6]/70">{output.template}</span>
+          Template: <span className="text-[#f0ede6]/70">{result.template}</span>
         </span>
       </div>
 
       <p className="text-xs text-[#f0ede6]/40">{pageHint}</p>
 
-      {output.quality.feedback.length > 0 ? (
+      {result.quality.feedback.length > 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
           <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]/80">
             Suggestions
           </p>
           <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-[#f0ede6]/80">
-            {output.quality.feedback.map((line, i) => (
+            {result.quality.feedback.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
@@ -143,22 +163,22 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
           </button>
           {kwOpen ? (
             <div className="space-y-3 border-t border-white/10 px-4 py-3 text-sm text-[#f0ede6]/75">
-              {output.keywords.skills.length ? (
+              {result.keywords.skills.length ? (
                 <p>
                   <span className="font-semibold text-[#f0ede6]">Skills: </span>
-                  {output.keywords.skills.join(", ")}
+                  {result.keywords.skills.join(", ")}
                 </p>
               ) : null}
-              {output.keywords.tools.length ? (
+              {result.keywords.tools.length ? (
                 <p>
                   <span className="font-semibold text-[#f0ede6]">Tools: </span>
-                  {output.keywords.tools.join(", ")}
+                  {result.keywords.tools.join(", ")}
                 </p>
               ) : null}
-              {output.keywords.actionVerbs.length ? (
+              {result.keywords.actionVerbs.length ? (
                 <p>
                   <span className="font-semibold text-[#f0ede6]">Verbs: </span>
-                  {output.keywords.actionVerbs.join(", ")}
+                  {result.keywords.actionVerbs.join(", ")}
                 </p>
               ) : null}
             </div>
@@ -167,7 +187,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {output.variants.map((variant, i) => (
+        {result.variants.map((variant, i) => (
           <button
             key={i}
             type="button"
@@ -220,16 +240,37 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
           <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]">
             Word (.docx)
           </p>
-          <button
-            type="button"
-            onClick={handleDownloadDocx}
-            disabled={!hasDocx}
-            className="rounded-lg bg-[#c9b87a] px-4 py-2 text-xs font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Download .docx
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadAllDocx}
+              disabled={!result.variants.some((x) => x.docx.length > 0)}
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs text-[#f0ede6]/70 transition hover:text-[#f0ede6] disabled:opacity-40"
+            >
+              Download all 3
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadDocx}
+              disabled={!hasDocx}
+              className="rounded-lg bg-[#c9b87a] px-4 py-2 text-xs font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Download active
+            </button>
+          </div>
         </div>
       </div>
+
+      <details className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-[#f0ede6]/60">
+        <summary className="cursor-pointer text-xs font-medium uppercase tracking-widest text-[#f0ede6]/45">
+          Tips: PDF from LaTeX
+        </summary>
+        <ul className="mt-3 list-inside list-disc space-y-2 text-sm">
+          <li>Copy LaTeX → paste into Overleaf → Menu → Download PDF.</li>
+          <li>Or compile locally: save as <code className="text-[#f0ede6]/80">resume.tex</code> and run pdflatex.</li>
+          <li>Word exports are ready to open in Google Docs or Microsoft Word.</li>
+        </ul>
+      </details>
     </div>
   );
 }

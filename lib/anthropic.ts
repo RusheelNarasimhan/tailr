@@ -88,7 +88,7 @@ Rules:
 - All required keys present; use "" or [] when unknown.
 - experience.bullets are ONLY objects with "text" and "score", never raw strings.
 
-The user message JSON contains: jobDescription, resumeBullets (string[]), optionalProfile (optional header + education hints).`;
+The user message JSON contains: jobDescription, resumeBullets (string[]), optionalProfile (optional header + education hints), preferOnePage (boolean). When preferOnePage is true, bias toward a single-page layout: shorter summary, fewer bullets per role, fewer jobFit items.`;
 
 export function getAnthropicClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -102,6 +102,7 @@ export type StructuredResumeInput = {
   jobDescription: string;
   resumeBullets: string[];
   optionalProfile: OptionalProfileInput;
+  preferOnePage?: boolean;
 };
 
 export async function fetchMultiVariantResumeRawText(
@@ -119,6 +120,7 @@ export async function fetchMultiVariantResumeRawText(
           jobDescription: input.jobDescription,
           resumeBullets: input.resumeBullets,
           optionalProfile: input.optionalProfile,
+          preferOnePage: Boolean(input.preferOnePage),
         }),
       },
     ],

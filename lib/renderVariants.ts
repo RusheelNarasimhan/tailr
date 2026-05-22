@@ -15,13 +15,14 @@ export async function renderVariantsFromModel(
   model: CachedTailorModelPayload,
   template: LatexTemplateId,
   optionalProfile: OptionalProfileInput,
+  preferOnePage?: boolean,
 ): Promise<TailorVariantResponse[]> {
   const out: TailorVariantResponse[] = [];
 
   for (const entry of model.variants) {
     let data = normalizeResumeData(entry.resume);
     data = mergeOptionalProfile(data, optionalProfile);
-    data = trimResumeForTemplate(data, template);
+    data = trimResumeForTemplate(data, template, preferOnePage);
     assertResumeDataUsable(data);
 
     const latex = generateLatexResume(data, template);

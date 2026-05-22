@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TailorResult } from "@/components/OutputPanel";
+import {
+  clearTailorDraft,
+  hasDraftContent,
+  loadTailorDraft,
+  saveTailorDraft,
+  type TailorDraft,
+} from "@/lib/tailorDraft";
 import { LATEX_TEMPLATES, type LatexTemplateId } from "@/types/resume";
 
 type TailorFormProps = {
@@ -27,8 +34,96 @@ export default function TailorForm({
   const [resumeBullets, setResumeBullets] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [template, setTemplate] = useState<LatexTemplateId>("compact");
+  const [preferOnePage, setPreferOnePage] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydrated = useRef(false);
+
+  useEffect(() => {
+    const draft = loadTailorDraft();
+    if (!draft || !hasDraftContent(draft)) {
+      hydrated.current = true;
+      return;
+    }
+    setName(draft.name);
+    setEmail(draft.email);
+    setPhone(draft.phone);
+    setLocation(draft.location);
+    setLinkedin(draft.linkedin);
+    setGithub(draft.github);
+    setSchool(draft.school);
+    setDegree(draft.degree);
+    setGraduationDate(draft.graduationDate);
+    setResumeBullets(draft.resumeBullets);
+    setJobDescription(draft.jobDescription);
+    setTemplate(draft.template);
+    setPreferOnePage(draft.preferOnePage);
+    setDraftRestored(true);
+    hydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const draft: TailorDraft = {
+        name,
+        email,
+        phone,
+        location,
+        linkedin,
+        github,
+        school,
+        degree,
+        graduationDate,
+        resumeBullets,
+        jobDescription,
+        template,
+        preferOnePage,
+      };
+      saveTailorDraft(draft);
+    }, 400);
+
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [
+    name,
+    email,
+    phone,
+    location,
+    linkedin,
+    github,
+    school,
+    degree,
+    graduationDate,
+    resumeBullets,
+    jobDescription,
+    template,
+    preferOnePage,
+  ]);
+
+  function handleClearDraft() {
+    clearTailorDraft();
+    setName("");
+    setEmail("");
+    setPhone("");
+    setLocation("");
+    setLinkedin("");
+    setGithub("");
+    setSchool("");
+    setDegree("");
+    setGraduationDate("");
+    setResumeBullets("");
+    setJobDescription("");
+    setTemplate("compact");
+    setPreferOnePage(true);
+    setDraftRestored(false);
+    setError(null);
+  }
 
   async function handleSubmit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -56,6 +151,7 @@ export default function TailorForm({
           resumeBullets,
           jobDescription,
           template,
+          preferOnePage,
         }),
       });
       const data = (await res.json()) as TailorResult & {
@@ -106,7 +202,20 @@ export default function TailorForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      {draftRestored ? (
+        <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200/90">
+          Restored your last draft from this browser.
+          <button
+            type="button"
+            onClick={handleClearDraft}
+            className="ml-2 underline hover:text-emerald-100"
+          >
+            Clear draft
+          </button>
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
           <label
             htmlFor="latex-template"
@@ -127,10 +236,18 @@ export default function TailorForm({
             ))}
           </select>
         </div>
-        <p className="text-xs text-[#f0ede6]/40 max-w-md">
-          Compact = 1–2 pages · Modern = balanced · Academic = spacious. More
-          bullets may trim to fit.
-        </p>
+        <label className="flex max-w-md cursor-pointer items-start gap-2 text-sm text-[#f0ede6]/60">
+          <input
+            type="checkbox"
+            checked={preferOnePage}
+            onChange={(e) => setPreferOnePage(e.target.checked)}
+            className="mt-0.5 rounded border-white/20"
+          />
+          <span>
+            Prefer ~1 page (tighter trim + shorter sections). Uncheck to allow
+            up to ~2 pages.
+          </span>
+        </label>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
