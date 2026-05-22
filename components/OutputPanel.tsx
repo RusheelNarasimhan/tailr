@@ -39,7 +39,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
 
   if (loading) {
     return (
-      <div className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+      <div className="card-elevated mt-8 space-y-4 p-8">
         <div className="flex items-center gap-3">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#c9b87a]/30 border-t-[#c9b87a]" />
           <p className="text-sm text-[#f0ede6]/70">
@@ -139,10 +139,8 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
       <p className="text-xs text-[#f0ede6]/40">{pageHint}</p>
 
       {result.quality.feedback.length > 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-          <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]/80">
-            Suggestions
-          </p>
+        <div className="card p-4">
+          <p className="section-label">Suggestions</p>
           <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-[#f0ede6]/80">
             {result.quality.feedback.map((line, i) => (
               <li key={i}>{line}</li>
@@ -152,7 +150,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
       ) : null}
 
       {kwCount > 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03]">
+        <div className="card overflow-hidden">
           <button
             type="button"
             onClick={() => setKwOpen(!kwOpen)}
@@ -207,11 +205,9 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="card-elevated p-5 sm:p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]">
-            LaTeX (pdflatex)
-          </p>
+          <p className="section-label">LaTeX export</p>
           <div className="flex flex-wrap gap-2">
             <a
               href="https://www.overleaf.com/project"
@@ -235,11 +231,9 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
         </pre>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="card-elevated p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]">
-            Word (.docx)
-          </p>
+          <p className="section-label">Word export</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -253,7 +247,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
               type="button"
               onClick={handleDownloadDocx}
               disabled={!hasDocx}
-              className="rounded-lg bg-[#c9b87a] px-4 py-2 text-xs font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn-primary !px-4 !py-2 text-xs disabled:cursor-not-allowed disabled:opacity-40"
             >
               Download active
             </button>
@@ -261,7 +255,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
         </div>
       </div>
 
-      <details className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-[#f0ede6]/60">
+      <details className="card px-4 py-3 text-sm text-[#f0ede6]/60">
         <summary className="cursor-pointer text-xs font-medium uppercase tracking-widest text-[#f0ede6]/45">
           Tips: PDF from LaTeX
         </summary>

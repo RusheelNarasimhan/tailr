@@ -1,12 +1,18 @@
 "use client";
 
+import Logo from "@/components/Logo";
 import { useUser } from "@/lib/hooks/useUser";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
-import Link from "next/link";
 
-export default function Navbar() {
+type NavbarProps = {
+  isPro?: boolean;
+  onUpgrade?: () => void;
+};
+
+export default function Navbar({ isPro, onUpgrade }: NavbarProps) {
   const { user, loading } = useUser();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -17,31 +23,39 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-      <Link href="/" className="text-base font-semibold tracking-tight text-[#c9b87a] hover:opacity-80 transition">
-        tailr
-      </Link>
-      <div className="flex items-center gap-4">
-        {!loading && user && (
-          <>
-            <Link
-              href="/app"
-              className="text-xs text-[#f0ede6]/60 transition hover:text-[#f0ede6]"
-            >
-              Tailor
-            </Link>
-            <span className="hidden text-xs text-[#f0ede6]/50 sm:block">
-              {user.email}
-            </span>
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[#f0ede6]/70 transition hover:border-white/20 hover:text-[#f0ede6]"
-            >
-              Log out
-            </button>
-          </>
-        )}
-      </div>
-    </nav>
+    <header className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#070708]/85 backdrop-blur-xl">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+        <Logo href="/app" />
+        <div className="flex items-center gap-3">
+          {!loading && user && (
+            <>
+              {isPro ? (
+                <span className="hidden rounded-full border border-[#c9b87a]/35 bg-[#c9b87a]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#c9b87a] sm:inline">
+                  Pro
+                </span>
+              ) : onUpgrade ? (
+                <button
+                  type="button"
+                  onClick={onUpgrade}
+                  className="hidden rounded-lg border border-[#c9b87a]/40 bg-[#c9b87a]/10 px-3 py-1.5 text-xs font-medium text-[#c9b87a] transition hover:bg-[#c9b87a]/20 sm:inline"
+                >
+                  Upgrade
+                </button>
+              ) : null}
+              <span className="hidden max-w-[180px] truncate text-xs text-[#f0ede6]/45 lg:block">
+                {user.email}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-[#f0ede6]/60 transition hover:border-white/20 hover:text-[#f0ede6]"
+              >
+                Log out
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
+    </header>
   );
 }

@@ -193,17 +193,16 @@ export default function TailorForm({
   }
 
   const textareaClass =
-    "w-full flex-1 resize-none rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none focus:border-[#c9b87a]/50 transition min-h-[280px]";
+    "input-field min-h-[280px] flex-1 resize-none !py-3";
 
-  const inputSm =
-    "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none focus:border-[#c9b87a]/50";
+  const inputSm = "input-field !py-2";
 
   const bulletLines = resumeBullets.split(/\r?\n/).filter((l) => l.trim()).length;
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {draftRestored ? (
-        <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200/90">
+        <p className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-200/90">
           Restored your last draft from this browser.
           <button
             type="button"
@@ -227,7 +226,7 @@ export default function TailorForm({
             id="latex-template"
             value={template}
             onChange={(e) => setTemplate(e.target.value as LatexTemplateId)}
-            className="max-w-xs rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm text-[#f0ede6] outline-none focus:border-[#c9b87a]/50"
+            className="input-field max-w-xs !py-2"
           >
             {LATEX_TEMPLATES.map((t) => (
               <option key={t.id} value={t.id}>
@@ -250,10 +249,8 @@ export default function TailorForm({
         </label>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
-          Header (optional)
-        </p>
+      <div className="card p-4 sm:p-5">
+        <p className="section-label mb-3">Profile (optional)</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <input className={inputSm} placeholder="Full name" value={name} onChange={(ev) => setName(ev.target.value)} />
           <input className={inputSm} type="email" placeholder="Email" value={email} onChange={(ev) => setEmail(ev.target.value)} />
@@ -267,9 +264,7 @@ export default function TailorForm({
             onChange={(ev) => setGithub(ev.target.value)}
           />
         </div>
-        <p className="mt-3 mb-2 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
-          Education (optional — graduation date shown on resume)
-        </p>
+        <p className="section-label mt-4 mb-2">Education</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <input className={inputSm} placeholder="School" value={school} onChange={(ev) => setSchool(ev.target.value)} />
           <input className={inputSm} placeholder="Degree" value={degree} onChange={(ev) => setDegree(ev.target.value)} />
@@ -284,8 +279,8 @@ export default function TailorForm({
 
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="flex flex-1 flex-col gap-2">
-          <label className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
-            Your Resume Bullets
+          <label className="section-label">
+            Resume bullets
             {bulletLines > 0 ? (
               <span className="ml-2 text-[#f0ede6]/30">({bulletLines} lines)</span>
             ) : null}
@@ -298,8 +293,8 @@ export default function TailorForm({
           />
         </div>
         <div className="flex flex-1 flex-col gap-2">
-          <label className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
-            Job Description
+          <label className="section-label">
+            Job description
             {jobDescription.length > 0 ? (
               <span className="ml-2 text-[#f0ede6]/30">
                 ({jobDescription.length.toLocaleString()} chars)
@@ -324,9 +319,9 @@ export default function TailorForm({
       <button
         type="submit"
         disabled={loading}
-        className="rounded-xl bg-[#c9b87a] px-6 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+        className="btn-primary w-full sm:w-auto disabled:opacity-60"
       >
-        {loading ? "Generating 3 variants…" : "Generate 3 resume variants →"}
+        {loading ? "Generating 3 variants…" : "Generate tailored resumes"}
       </button>
     </form>
   );

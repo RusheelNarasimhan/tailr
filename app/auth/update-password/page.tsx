@@ -1,5 +1,6 @@
 "use client";
 
+import Logo from "@/components/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { formatAuthError } from "@/lib/authErrors";
 import Link from "next/link";
@@ -57,19 +58,17 @@ function UpdatePasswordInner() {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[#f0ede6]/50">
+      <div className="page-glow flex min-h-screen items-center justify-center text-[#f0ede6]/50">
         Loading…
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[#f0ede6]">
-      <div className="w-full max-w-md px-6 py-10">
-        <Link href="/" className="text-lg font-semibold text-[#c9b87a]">
-          tailr
-        </Link>
-        <h1 className="mt-8 text-2xl font-semibold">Set a new password</h1>
+    <div className="page-glow flex min-h-screen items-center justify-center px-4 py-12 text-[#f0ede6]">
+      <div className="card-elevated w-full max-w-md p-8 sm:p-10">
+        <Logo href="/" />
+        <h1 className="mt-8 text-2xl font-semibold tracking-tight">Set a new password</h1>
         <p className="mt-2 text-sm text-[#f0ede6]/50">
           Choose a password for your account, then you can sign in anytime.
         </p>
@@ -83,7 +82,7 @@ function UpdatePasswordInner() {
             placeholder="New password (6+ characters)"
             required
             minLength={6}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-[#c9b87a]/60"
+            className="input-field"
           />
           <input
             type="password"
@@ -93,12 +92,12 @@ function UpdatePasswordInner() {
             placeholder="Confirm new password"
             required
             minLength={6}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none focus:border-[#c9b87a]/60"
+            className="input-field"
           />
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-[#c9b87a] py-3 text-sm font-semibold text-[#0a0a0a] disabled:opacity-60"
+            className="btn-primary w-full disabled:opacity-60"
           >
             {loading ? "Saving…" : "Save password"}
           </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import Logo from "@/components/Logo";
 import { formatAuthError } from "@/lib/authErrors";
 import {
   buildAuthCallbackUrl,
@@ -201,18 +202,16 @@ function LoginPageInner() {
   const busy = loading || googleLoading;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[#f0ede6]">
-      <div className="w-full max-w-md px-6 py-10">
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="text-lg font-semibold tracking-tight text-[#c9b87a] transition hover:opacity-80"
-          >
-            tailr
+    <div className="page-glow flex min-h-screen items-center justify-center px-4 py-12 text-[#f0ede6]">
+      <div className="card-elevated w-full max-w-md p-8 sm:p-10">
+        <div className="mb-8 flex items-center justify-between">
+          <Logo href="/" />
+          <Link href="/" className="text-xs text-[#f0ede6]/40 hover:text-[#f0ede6]">
+            ← Home
           </Link>
         </div>
 
-        <div className="mb-6 flex rounded-xl border border-white/10 bg-white/[0.03] p-1">
+        <div className="mb-6 flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
           <button
             type="button"
             onClick={() => switchMode("signin")}
@@ -281,7 +280,7 @@ function LoginPageInner() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@domain.com"
               required
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none transition focus:border-[#c9b87a]/60 focus:bg-white/[0.07]"
+              className="input-field"
             />
           </div>
 
@@ -317,7 +316,7 @@ function LoginPageInner() {
                 placeholder="At least 6 characters"
                 required
                 minLength={6}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none transition focus:border-[#c9b87a]/60 focus:bg-white/[0.07]"
+                className="input-field"
               />
             </div>
           )}
@@ -339,7 +338,7 @@ function LoginPageInner() {
                 placeholder="Repeat password"
                 required
                 minLength={6}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none transition focus:border-[#c9b87a]/60 focus:bg-white/[0.07]"
+                className="input-field"
               />
             </div>
           ) : null}
@@ -350,7 +349,7 @@ function LoginPageInner() {
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={busy}
-                className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+                className="btn-primary w-full disabled:opacity-60"
               >
                 {loading ? "Sending…" : "Send reset link"}
               </button>
@@ -366,7 +365,7 @@ function LoginPageInner() {
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+              className="btn-primary w-full disabled:opacity-60"
             >
               {loading
                 ? "Please wait…"
@@ -389,9 +388,16 @@ function LoginPageInner() {
           </div>
         ) : null}
 
-        <p className="mt-8 text-center text-xs text-[#f0ede6]/35">
-          Google sign-in uses Supabase Auth. Enable the Google provider in your
-          Supabase project (see README).
+        <p className="mt-8 text-center text-xs leading-relaxed text-[#f0ede6]/35">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="text-[#f0ede6]/50 underline hover:text-[#f0ede6]">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="text-[#f0ede6]/50 underline hover:text-[#f0ede6]">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </div>
@@ -400,7 +406,7 @@ function LoginPageInner() {
 
 function LoginFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-sm text-[#f0ede6]/50">
+    <div className="page-glow flex min-h-screen items-center justify-center text-sm text-[#f0ede6]/50">
       Loading…
     </div>
   );

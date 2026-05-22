@@ -6,6 +6,7 @@ import OutputPanel, { type TailorResult } from "@/components/OutputPanel";
 import TailorForm from "@/components/TailorForm";
 import UpgradeModal from "@/components/UpgradeModal";
 import UsageBar from "@/components/UsageBar";
+import { useFadeIn } from "@/lib/hooks/useFadeIn";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -13,38 +14,6 @@ type Profile = {
   uses_count: number;
   is_pro: boolean;
 };
-
-// Improved fade-in (IntersectionObserver)
-function useFadeIn(delay = 0) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    el.style.opacity = "0";
-    el.style.transform = "translateY(16px)";
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => {
-            el.style.transition = `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms`;
-            el.style.opacity = "1";
-            el.style.transform = "translateY(0)";
-          }, 50);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [delay]);
-
-  return ref;
-}
 
 function AppPageInner() {
   const supabase = useMemo(() => createClient(), []);
@@ -198,20 +167,25 @@ function AppPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a0a] text-[#f0ede6]">
-      <Navbar />
+    <div className="page-glow flex min-h-screen flex-col text-[#f0ede6]">
+      <Navbar
+        isPro={profile?.is_pro}
+        onUpgrade={() => setShowUpgrade(true)}
+      />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8 sm:py-10">
         <div
           ref={header}
-          className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+          className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Resume Tailor
+            <p className="section-label">Workspace</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+              Resume tailor
             </h1>
-            <p className="mt-1 text-sm text-[#f0ede6]/50">
-              Three tailored variants per run, job keyword extraction, match score, and LaTeX / Word for each.
+            <p className="mt-2 max-w-lg text-sm leading-relaxed text-[#f0ede6]/50">
+              Generate three ATS-aligned variants with match score, extracted
+              keywords, and LaTeX / Word exports.
             </p>
           </div>
 
@@ -226,7 +200,7 @@ function AppPageInner() {
           ) : null}
         </div>
 
-        <div ref={formRef}>
+        <div ref={formRef} className="card-elevated p-6 sm:p-8">
           <TailorForm
             onResult={handleResult}
             onUpgradeRequired={() => setShowUpgrade(true)}
@@ -259,7 +233,10 @@ function AppPageInner() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-xl border border-[#c9b87a]/30 bg-[#111] px-5 py-3 text-sm text-[#c9b87a] shadow-xl">
+        <div
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#c9b87a]/35 bg-[#111116]/95 px-5 py-3 text-sm font-medium text-[#c9b87a] shadow-2xl backdrop-blur-md"
+          role="status"
+        >
           {toast}
         </div>
       )}
@@ -269,7 +246,7 @@ function AppPageInner() {
 
 function AppPageFallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-sm text-[#f0ede6]/50">
+    <div className="page-glow flex min-h-screen items-center justify-center text-sm text-[#f0ede6]/50">
       Loading…
     </div>
   );

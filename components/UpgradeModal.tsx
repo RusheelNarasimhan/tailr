@@ -43,18 +43,19 @@ export default function UpgradeModal({
 
   if (isPro) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-        <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
-          <h2 className="text-lg font-semibold">You&apos;re on Pro</h2>
-          <p className="mt-2 text-sm text-[#f0ede6]/60">
-            You already have unlimited tailoring. No need to pay again.
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="card-elevated w-full max-w-md p-8">
+          <p className="section-label">Account</p>
+          <h2 className="mt-2 text-xl font-semibold">You&apos;re on Pro</h2>
+          <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
+            Unlimited tailoring is active on your account.
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-5 w-full rounded-xl bg-[#c9b87a] py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90"
-          >
-            Back to app
+          <button type="button" onClick={onClose} className="btn-primary mt-6 w-full">
+            Continue tailoring
           </button>
         </div>
       </div>
@@ -62,35 +63,55 @@ export default function UpgradeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#111] p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold">You've used all 3 free tailors</h2>
-        <p className="mt-2 text-sm text-[#f0ede6]/60">
-          Upgrade once and tailor unlimited resumes forever. No subscription.
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="card-elevated w-full max-w-md p-8">
+        <p className="section-label">Upgrade</p>
+        <h2 className="mt-2 text-xl font-semibold">Unlock unlimited tailoring</h2>
+        <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
+          You&apos;ve used your three free runs. Upgrade once—no subscription—and
+          tailor as many resumes as you need.
         </p>
 
-        <div className="mt-5 rounded-xl border border-[#c9b87a]/30 bg-[#c9b87a]/5 p-4">
-          <p className="text-2xl font-bold text-[#c9b87a]">$5</p>
-          <p className="mt-0.5 text-xs text-[#f0ede6]/50">one-time · unlimited forever</p>
+        <ul className="mt-6 space-y-2 text-sm text-[#f0ede6]/65">
+          <li className="flex gap-2">
+            <span className="text-[#c9b87a]">✓</span> Unlimited AI generations
+          </li>
+          <li className="flex gap-2">
+            <span className="text-[#c9b87a]">✓</span> All templates & exports
+          </li>
+          <li className="flex gap-2">
+            <span className="text-[#c9b87a]">✓</span> Lifetime access — $5 once
+          </li>
+        </ul>
+
+        <div className="mt-6 rounded-xl border border-[#c9b87a]/30 bg-[#c9b87a]/8 px-5 py-4">
+          <p className="text-3xl font-bold text-[#c9b87a]">$5</p>
+          <p className="text-xs text-[#f0ede6]/45">One-time payment via Stripe</p>
         </div>
 
-        {error && (
-          <p className="mt-3 text-xs text-red-400">{error}</p>
-        )}
+        {error ? (
+          <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            {error}
+          </p>
+        ) : null}
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-6 flex flex-col gap-2">
           <button
             type="button"
             onClick={handleUpgrade}
             disabled={loading}
-            className="w-full rounded-xl bg-[#c9b87a] py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+            className="btn-primary w-full disabled:opacity-60"
           >
-            {loading ? "Redirecting…" : "Upgrade — $5 one-time →"}
+            {loading ? "Redirecting to checkout…" : "Upgrade now"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-xl border border-white/10 py-2.5 text-sm text-[#f0ede6]/50 transition hover:text-[#f0ede6]"
+            className="btn-secondary w-full !py-2.5"
           >
             Maybe later
           </button>
