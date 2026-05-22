@@ -1,23 +1,24 @@
 import { fetchMultiVariantResumeRawText } from "@/lib/anthropic";
-import { generateDocxResume } from "@/lib/docx";
-import { generateLatexResume } from "@/lib/latex";
 import { parseJsonFromModelText } from "@/lib/latexOutput";
+import { renderVariantsFromModel } from "@/lib/renderVariants";
 import {
   getCachedTailor,
+  isCachedModelPayload,
   setCachedTailor,
   tailorInputHash,
+  type CachedTailorModelPayload,
 } from "@/lib/resumeCache";
 import { parseTailorModelOutput } from "@/lib/tailorModel";
+import type { TailorApiSuccessBody } from "@/lib/tailorApi";
 import { createClient } from "@/lib/supabase/server";
 import {
-  assertResumeDataUsable,
   isLatexTemplateId,
-  mergeOptionalProfile,
-  normalizeResumeData,
   type LatexTemplateId,
   type OptionalProfileInput,
 } from "@/types/resume";
 import { NextResponse } from "next/server";
+
+export type { TailorVariantResponse, TailorApiSuccessBody } from "@/lib/tailorApi";
 
 type TailorRequestBody = {
   resumeBullets?: string | string[];
@@ -34,24 +35,6 @@ type TailorRequestBody = {
   graduationDate?: string;
 };
 
-export type TailorVariantResponse = {
-  label: string;
-  latex: string;
-  docx: string;
-};
-
-export type TailorApiSuccessBody = {
-  variants: TailorVariantResponse[];
-  keywords: {
-    skills: string[];
-    tools: string[];
-    actionVerbs: string[];
-  };
-  quality: { score: number; feedback: string[] };
-  template: LatexTemplateId;
-  cached: boolean;
-};
-
 function toBulletArray(raw: string | string[] | undefined): string[] {
   if (Array.isArray(raw)) {
     return raw.map((s) => String(s).trim()).filter(Boolean);
@@ -66,13 +49,29 @@ function toBulletArray(raw: string | string[] | undefined): string[] {
 }
 
 function buildSuccessBody(
-  variants: TailorVariantResponse[],
+  variants: TailorApiSuccessBody["variants"],
   keywords: TailorApiSuccessBody["keywords"],
   quality: TailorApiSuccessBody["quality"],
   template: LatexTemplateId,
   cached: boolean,
+  uses_count: number,
 ): TailorApiSuccessBody {
-  return { variants, keywords, quality, template, cached };
+  return { variants, keywords, quality, template, cached, uses_count };
+}
+
+async function incrementUses(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  current: number,
+): Promise<number> {
+  const next = current + 1;
+  const { error } = await supabase
+    .from("profiles")
+    .update({ uses_count: next })
+    .eq("id", userId);
+
+  if (error) throw new Error(error.message);
+  return next;
 }
 
 export async function POST(request: Request) {
@@ -117,23 +116,6 @@ export async function POST(request: Request) {
         ? body.template
         : "modern";
 
-    if (process.env.TAILOR_MOCK_RESPONSE === "1") {
-      const mockVariant = (n: number): TailorVariantResponse => ({
-        label: `Mock ${n}`,
-        latex: `\\documentclass{article}\\begin{document}Mock ${n}\\end{document}`,
-        docx: Buffer.from("test").toString("base64"),
-      });
-      return NextResponse.json(
-        buildSuccessBody(
-          [mockVariant(1), mockVariant(2), mockVariant(3)],
-          { skills: [], tools: [], actionVerbs: [] },
-          { score: 80, feedback: ["Mock feedback"] },
-          template,
-          false,
-        ),
-      );
-    }
-
     const resumeBullets = toBulletArray(body.resumeBullets);
     const jobDescription = body.jobDescription?.trim() ?? "";
 
@@ -156,11 +138,60 @@ export async function POST(request: Request) {
       graduationDate: body.graduationDate?.trim(),
     };
 
-    const cacheKey = tailorInputHash(jobDescription, resumeBullets, template);
-    const cached = await getCachedTailor(cacheKey);
-    if (cached && isCachedPayload(cached)) {
-      const bodyOut = cached as unknown as TailorApiSuccessBody;
-      return NextResponse.json({ ...bodyOut, cached: true });
+    if (
+      process.env.TAILOR_MOCK_RESPONSE === "1" &&
+      process.env.NODE_ENV === "development"
+    ) {
+      const mockVariant = (n: number) => ({
+        label: `Mock ${n}`,
+        latex: `\\documentclass{article}\\begin{document}Mock ${n}\\end{document}`,
+        docx: Buffer.from("test").toString("base64"),
+      });
+      const uses_count = await incrementUses(
+        supabase,
+        user.id,
+        profile.uses_count,
+      );
+      return NextResponse.json(
+        buildSuccessBody(
+          [mockVariant(1), mockVariant(2), mockVariant(3)],
+          { skills: [], tools: [], actionVerbs: [] },
+          { score: 80, feedback: ["Mock feedback"] },
+          template,
+          false,
+          uses_count,
+        ),
+      );
+    }
+
+    const cacheKey = tailorInputHash(
+      jobDescription,
+      resumeBullets,
+      template,
+      optionalProfile,
+    );
+    const cachedModel = await getCachedTailor(cacheKey);
+    if (cachedModel) {
+      const variants = await renderVariantsFromModel(
+        cachedModel,
+        template,
+        optionalProfile,
+      );
+      const uses_count = await incrementUses(
+        supabase,
+        user.id,
+        profile.uses_count,
+      );
+      return NextResponse.json(
+        buildSuccessBody(
+          variants,
+          cachedModel.keywords,
+          cachedModel.quality,
+          template,
+          true,
+          uses_count,
+        ),
+      );
     }
 
     const modelText = await fetchMultiVariantResumeRawText({
@@ -169,7 +200,9 @@ export async function POST(request: Request) {
       optionalProfile,
     });
 
-    console.log("[tailor] RAW MODEL OUTPUT:\n", modelText);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[tailor] model response length:", modelText.length);
+    }
 
     let rawJson: unknown;
     try {
@@ -202,62 +235,48 @@ export async function POST(request: Request) {
       );
     }
 
-    const outVariants: TailorVariantResponse[] = [];
-
-    for (const entry of parsed.variants) {
-      let data = normalizeResumeData(entry.resume);
-      data = mergeOptionalProfile(data, optionalProfile);
-      try {
-        assertResumeDataUsable(data);
-      } catch (validationErr) {
-        console.error("[tailor] VALIDATION FAILED:", validationErr);
-        return NextResponse.json(
-          { error: "Invalid resume data after normalization" },
-          { status: 422 },
-        );
-      }
-
-      const latex = generateLatexResume(data, template);
-      const docxBuffer = await generateDocxResume(data, template);
-      const docx = Buffer.from(docxBuffer).toString("base64");
-      outVariants.push({ label: entry.label, latex, docx });
-    }
-
-    const responseBody = buildSuccessBody(
-      outVariants,
-      {
+    const modelPayload: CachedTailorModelPayload = {
+      schemaVersion: 2,
+      template,
+      keywords: {
         skills: parsed.keywords.skills,
         tools: parsed.keywords.tools,
         actionVerbs: parsed.keywords.actionVerbs,
       },
-      parsed.quality,
+      quality: parsed.quality,
+      variants: parsed.variants.map((v) => ({
+        label: v.label,
+        resume: v.resume,
+      })),
+    };
+
+    const variants = await renderVariantsFromModel(
+      modelPayload,
       template,
-      false,
+      optionalProfile,
     );
 
-    await setCachedTailor(cacheKey, responseBody as unknown as Record<string, unknown>);
+    const responseBody = buildSuccessBody(
+      variants,
+      modelPayload.keywords,
+      modelPayload.quality,
+      template,
+      false,
+      profile.uses_count,
+    );
 
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ uses_count: profile.uses_count + 1 })
-      .eq("id", user.id);
+    await setCachedTailor(cacheKey, modelPayload);
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
+    const uses_count = await incrementUses(
+      supabase,
+      user.id,
+      profile.uses_count,
+    );
 
-    return NextResponse.json(responseBody);
+    return NextResponse.json({ ...responseBody, uses_count });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     console.error("[tailor] UNHANDLED:", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-function isCachedPayload(v: Record<string, unknown>): boolean {
-  return (
-    Array.isArray(v.variants) &&
-    v.variants.length === 3 &&
-    typeof v.template === "string"
-  );
 }

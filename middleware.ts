@@ -36,7 +36,10 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/app") && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/auth/login";
-    redirectUrl.searchParams.set("next", request.nextUrl.pathname);
+    const returnPath =
+      request.nextUrl.pathname +
+      (request.nextUrl.search ? request.nextUrl.search : "");
+    redirectUrl.searchParams.set("next", returnPath);
     return NextResponse.redirect(redirectUrl);
   }
 

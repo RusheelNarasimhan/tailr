@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LatexTemplateId } from "@/types/resume";
 
 export type TailorVariant = {
@@ -19,16 +19,41 @@ export type TailorResult = {
   quality: { score: number; feedback: string[] };
   template: LatexTemplateId;
   cached: boolean;
+  uses_count?: number;
 };
 
 type OutputPanelProps = {
   output: TailorResult | null;
+  loading?: boolean;
 };
 
-export default function OutputPanel({ output }: OutputPanelProps) {
+export default function OutputPanel({ output, loading }: OutputPanelProps) {
   const [active, setActive] = useState(0);
   const [copied, setCopied] = useState(false);
   const [kwOpen, setKwOpen] = useState(false);
+
+  useEffect(() => {
+    setActive(0);
+    setCopied(false);
+  }, [output]);
+
+  if (loading) {
+    return (
+      <div className="mt-8 space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#c9b87a]/30 border-t-[#c9b87a]" />
+          <p className="text-sm text-[#f0ede6]/70">
+            Generating 3 tailored resume variants…
+          </p>
+        </div>
+        <div className="space-y-3">
+          <div className="h-10 animate-pulse rounded-xl bg-white/5" />
+          <div className="h-32 animate-pulse rounded-xl bg-white/5" />
+          <div className="h-24 animate-pulse rounded-xl bg-white/5" />
+        </div>
+      </div>
+    );
+  }
 
   if (!output?.variants?.length || !output.variants[0]?.latex?.trim()) {
     return null;
@@ -66,6 +91,11 @@ export default function OutputPanel({ output }: OutputPanelProps) {
     output.keywords.tools.length +
     output.keywords.actionVerbs.length;
 
+  const pageHint =
+    output.template === "compact"
+      ? "Compact layout targets 1–2 pages when compiled."
+      : "Modern/Academic may run closer to 2 pages with long content.";
+
   return (
     <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -85,6 +115,8 @@ export default function OutputPanel({ output }: OutputPanelProps) {
           Template: <span className="text-[#f0ede6]/70">{output.template}</span>
         </span>
       </div>
+
+      <p className="text-xs text-[#f0ede6]/40">{pageHint}</p>
 
       {output.quality.feedback.length > 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
@@ -160,13 +192,23 @@ export default function OutputPanel({ output }: OutputPanelProps) {
           <p className="text-xs font-medium uppercase tracking-widest text-[#c9b87a]">
             LaTeX (pdflatex)
           </p>
-          <button
-            type="button"
-            onClick={handleCopyLatex}
-            className="rounded-lg border border-white/10 px-3 py-1 text-xs text-[#f0ede6]/60 transition hover:text-[#f0ede6]"
-          >
-            {copied ? "Copied!" : "Copy LaTeX"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="https://www.overleaf.com/project"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-white/10 px-3 py-1 text-xs text-[#f0ede6]/60 transition hover:text-[#f0ede6]"
+            >
+              Open Overleaf
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyLatex}
+              className="rounded-lg border border-white/10 px-3 py-1 text-xs text-[#f0ede6]/60 transition hover:text-[#f0ede6]"
+            >
+              {copied ? "Copied!" : "Copy LaTeX"}
+            </button>
+          </div>
         </div>
         <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap text-sm leading-relaxed text-[#f0ede6]/90">
           {v.latex}

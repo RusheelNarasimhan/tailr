@@ -7,9 +7,14 @@ import { LATEX_TEMPLATES, type LatexTemplateId } from "@/types/resume";
 type TailorFormProps = {
   onResult: (payload: TailorResult) => void;
   onUpgradeRequired: () => void;
+  onLoadingChange?: (loading: boolean) => void;
 };
 
-export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormProps) {
+export default function TailorForm({
+  onResult,
+  onUpgradeRequired,
+  onLoadingChange,
+}: TailorFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -21,17 +26,19 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
   const [graduationDate, setGraduationDate] = useState("");
   const [resumeBullets, setResumeBullets] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [template, setTemplate] = useState<LatexTemplateId>("modern");
+  const [template, setTemplate] = useState<LatexTemplateId>("compact");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit() {
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     setError(null);
     if (!resumeBullets.trim() || !jobDescription.trim()) {
-      setError("Both fields are required.");
+      setError("Both resume bullets and job description are required.");
       return;
     }
     setLoading(true);
+    onLoadingChange?.(true);
     try {
       const res = await fetch("/api/tailor", {
         method: "POST",
@@ -51,7 +58,11 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           template,
         }),
       });
-      const data = (await res.json()) as TailorResult & { error?: string; detail?: string };
+      const data = (await res.json()) as TailorResult & {
+        error?: string;
+        detail?: string;
+        uses_count?: number;
+      };
 
       if (res.status === 403) {
         onUpgradeRequired();
@@ -72,14 +83,16 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           quality: data.quality ?? { score: 0, feedback: [] },
           template: data.template ?? template,
           cached: Boolean(data.cached),
+          uses_count: data.uses_count,
         });
       } else {
         throw new Error("Response missing variants — check Network tab for API body.");
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Request failed");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed");
     } finally {
       setLoading(false);
+      onLoadingChange?.(false);
     }
   }
 
@@ -89,8 +102,10 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
   const inputSm =
     "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none focus:border-[#c9b87a]/50";
 
+  const bulletLines = resumeBullets.split(/\r?\n/).filter((l) => l.trim()).length;
+
   return (
-    <div className="space-y-4">
+    <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-1">
           <label
@@ -113,8 +128,8 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           </select>
         </div>
         <p className="text-xs text-[#f0ede6]/40 max-w-md">
-          Compact fits 2 pages max with accent color, bold skill groups, graduation
-          dates, GitHub, and role-fit answers from the job posting.
+          Compact = 1–2 pages · Modern = balanced · Academic = spacious. More
+          bullets may trim to fit.
         </p>
       </div>
 
@@ -123,29 +138,29 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           Header (optional)
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input className={inputSm} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className={inputSm} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className={inputSm} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <input className={inputSm} placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <input className={inputSm} placeholder="LinkedIn URL" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+          <input className={inputSm} placeholder="Full name" value={name} onChange={(ev) => setName(ev.target.value)} />
+          <input className={inputSm} type="email" placeholder="Email" value={email} onChange={(ev) => setEmail(ev.target.value)} />
+          <input className={inputSm} placeholder="Phone" value={phone} onChange={(ev) => setPhone(ev.target.value)} />
+          <input className={inputSm} placeholder="Location" value={location} onChange={(ev) => setLocation(ev.target.value)} />
+          <input className={inputSm} placeholder="LinkedIn URL" value={linkedin} onChange={(ev) => setLinkedin(ev.target.value)} />
           <input
             className={inputSm}
             placeholder="GitHub (github.com/you or full URL)"
             value={github}
-            onChange={(e) => setGithub(e.target.value)}
+            onChange={(ev) => setGithub(ev.target.value)}
           />
         </div>
         <p className="mt-3 mb-2 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
           Education (optional — graduation date shown on resume)
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <input className={inputSm} placeholder="School" value={school} onChange={(e) => setSchool(e.target.value)} />
-          <input className={inputSm} placeholder="Degree" value={degree} onChange={(e) => setDegree(e.target.value)} />
+          <input className={inputSm} placeholder="School" value={school} onChange={(ev) => setSchool(ev.target.value)} />
+          <input className={inputSm} placeholder="Degree" value={degree} onChange={(ev) => setDegree(ev.target.value)} />
           <input
             className={inputSm}
             placeholder="Graduation (e.g. May 2026)"
             value={graduationDate}
-            onChange={(e) => setGraduationDate(e.target.value)}
+            onChange={(ev) => setGraduationDate(ev.target.value)}
           />
         </div>
       </div>
@@ -154,38 +169,48 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
         <div className="flex flex-1 flex-col gap-2">
           <label className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
             Your Resume Bullets
+            {bulletLines > 0 ? (
+              <span className="ml-2 text-[#f0ede6]/30">({bulletLines} lines)</span>
+            ) : null}
           </label>
           <textarea
             className={textareaClass}
             placeholder={"• Led a team of 5 engineers...\n• Reduced latency by 30%...\n• Built CI/CD pipeline..."}
             value={resumeBullets}
-            onChange={(e) => setResumeBullets(e.target.value)}
+            onChange={(ev) => setResumeBullets(ev.target.value)}
           />
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <label className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
             Job Description
+            {jobDescription.length > 0 ? (
+              <span className="ml-2 text-[#f0ede6]/30">
+                ({jobDescription.length.toLocaleString()} chars)
+              </span>
+            ) : null}
           </label>
           <textarea
             className={textareaClass}
             placeholder="Paste the full job description here..."
             value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
+            onChange={(ev) => setJobDescription(ev.target.value)}
           />
         </div>
       </div>
 
       {error && (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          {error}
+        </p>
       )}
 
       <button
-        onClick={handleSubmit}
+        type="submit"
         disabled={loading}
         className="rounded-xl bg-[#c9b87a] px-6 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
       >
         {loading ? "Generating 3 variants…" : "Generate 3 resume variants →"}
       </button>
-    </div>
+    </form>
   );
 }

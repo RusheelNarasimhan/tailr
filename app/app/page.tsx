@@ -53,6 +53,7 @@ function AppPageInner() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [output, setOutput] = useState<TailorResult | null>(null);
+  const [tailorLoading, setTailorLoading] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -69,8 +70,7 @@ function AppPageInner() {
 
     if (!upgraded) return;
 
-    setToast("You're now on Pro — unlimited tailoring unlocked 🎉");
-    const toastTimer = setTimeout(() => setToast(null), 4000);
+    let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
     if (sessionId) {
       void (async () => {
@@ -89,8 +89,12 @@ function AppPageInner() {
                 ? `Upgrade could not be confirmed: ${payload.error}`
                 : "Upgrade could not be confirmed. Try refreshing or contact support.",
             );
+            toastTimer = setTimeout(() => setToast(null), 6000);
             return;
           }
+
+          setToast("You're now on Pro — unlimited tailoring unlocked");
+          toastTimer = setTimeout(() => setToast(null), 4000);
 
           const {
             data: { user },
@@ -107,11 +111,17 @@ function AppPageInner() {
           router.replace("/app");
         } catch {
           setToast("Upgrade confirmation failed. Check your connection and try again.");
+          toastTimer = setTimeout(() => setToast(null), 6000);
         }
       })();
+    } else {
+      setToast("Welcome back — check your account for Pro status.");
+      toastTimer = setTimeout(() => setToast(null), 4000);
     }
 
-    return () => clearTimeout(toastTimer);
+    return () => {
+      if (toastTimer) clearTimeout(toastTimer);
+    };
   }, [searchParams, supabase, router]);
 
   // Start Stripe checkout only for non‑Pro users (avoid paywall if already upgraded).
@@ -140,7 +150,10 @@ function AppPageInner() {
         }
         if (data.url) window.location.href = data.url;
       })
-      .catch(() => {});
+      .catch(() => {
+        setToast("Could not start checkout. Try again from the upgrade modal.");
+        setTimeout(() => setToast(null), 5000);
+      });
 
     return () => controller.abort();
   }, [searchParams, profileLoading, profile, router]);
@@ -173,9 +186,11 @@ function AppPageInner() {
   function handleResult(payload: TailorResult) {
     setOutput(payload);
 
-    setProfile((prev) =>
-      prev ? { ...prev, uses_count: prev.uses_count + 1 } : prev
-    );
+    if (typeof payload.uses_count === "number") {
+      setProfile((prev) =>
+        prev ? { ...prev, uses_count: payload.uses_count! } : prev,
+      );
+    }
   }
 
   return (
@@ -207,11 +222,12 @@ function AppPageInner() {
           <TailorForm
             onResult={handleResult}
             onUpgradeRequired={() => setShowUpgrade(true)}
+            onLoadingChange={setTailorLoading}
           />
         </div>
 
         <div ref={outputRef}>
-          <OutputPanel output={output} />
+          <OutputPanel output={output} loading={tailorLoading} />
         </div>
       </main>
 

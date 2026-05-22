@@ -89,8 +89,9 @@ export default function Home() {
 
         <div ref={sub}>
           <p className="mx-auto mt-6 max-w-xl text-lg text-[#f0ede6]/50">
-            Paste your bullets and a job description. Get ATS-optimized rewrites
-            in seconds — no fluff, no fabrication.
+            Paste your bullets and a job description. Get three full resume
+            variants — LaTeX and Word — with match score, keywords, and role-fit
+            sections tailored to the posting.
           </p>
         </div>
 
@@ -137,8 +138,8 @@ export default function Home() {
               },
               {
                 step: "03",
-                title: "Get tailored bullets instantly",
-                desc: "Receive rewritten bullets that mirror the job's keywords and tone.",
+                title: "Download LaTeX or Word",
+                desc: "Pick from 3 variants with ATS keywords, match score, and polished layout (1–2 pages).",
                 ref: card3,
               },
             ].map(({ step, title, desc, ref }) => (
@@ -176,8 +177,8 @@ export default function Home() {
 
               <ul className="mt-6 space-y-3 text-sm text-[#f0ede6]/70">
                 <li>✓ 3 tailors free</li>
-                <li>✓ Full ATS optimization</li>
-                <li>✓ Instant results</li>
+                <li>✓ 3 variants per run (LaTeX + Word)</li>
+                <li>✓ Match score & keywords</li>
               </ul>
 
               <Link
@@ -198,12 +199,12 @@ export default function Home() {
 
               <ul className="mt-6 space-y-3 text-sm text-[#f0ede6]/70">
                 <li>✓ Unlimited tailoring forever</li>
-                <li>✓ Full ATS optimization</li>
-                <li>✓ Instant results</li>
+                <li>✓ All templates & exports</li>
+                <li>✓ Unlimited LaTeX & Word exports</li>
               </ul>
 
               <Link
-                href="/app?checkout=true"
+                href="/auth/login?intent=upgrade"
                 className="mt-8 block rounded-xl bg-[#c9b87a] py-3 text-center text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90"
               >
                 Upgrade — $5 one-time →
@@ -215,7 +216,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 text-center text-xs text-[#f0ede6]/30">
-        tailr © 2025
+        tailr © 2026
       </footer>
     </div>
   );
