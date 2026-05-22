@@ -92,7 +92,9 @@ export default function UpgradeModal({
 
         <div className="mt-6 rounded-xl border border-[#c9b87a]/30 bg-[#c9b87a]/8 px-5 py-4">
           <p className="text-3xl font-bold text-[#c9b87a]">{getProPriceShort()}</p>
-          <p className="text-xs text-[#f0ede6]/45">{getProPriceLabel()} · billed monthly</p>
+          <p className="text-xs text-[#f0ede6]/45">
+            {getProPriceLabel()} · billed monthly in CAD
+          </p>
         </div>
 
         {error ? (

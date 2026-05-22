@@ -27,7 +27,8 @@ AI resume tailor — paste bullets and a job description, get three ATS-friendly
 See `.env.example`. Important:
 
 - `STRIPE_PRO_PRICE_ID` — monthly price ID from Stripe (`price_...`). Setup: [docs/stripe-subscription-setup.md](docs/stripe-subscription-setup.md)
-- `NEXT_PUBLIC_PRO_PRICE_MONTHLY` — display price in UI (e.g. `9` for $9/mo)
+- `NEXT_PUBLIC_PRO_PRICE_MONTHLY` — display amount (default **4**)
+- `NEXT_PUBLIC_PRO_PRICE_CURRENCY` — `CAD` or `USD` (default **CAD**)
 - `NEXT_PUBLIC_APP_URL` must be the **origin only** (e.g. `http://localhost:3000`), not `/app`.
 - `SUPABASE_SERVICE_ROLE_KEY` enables generation cache and subscription webhooks.
 - `TAILOR_MOCK_RESPONSE=1` works only in **development** (skips the LLM).
