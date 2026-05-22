@@ -12,10 +12,10 @@ import { createClient } from "@/lib/supabase/server";
 import {
   assertResumeDataUsable,
   isLatexTemplateId,
-  mergeOptionalHeader,
+  mergeOptionalProfile,
   normalizeResumeData,
   type LatexTemplateId,
-  type ResumeHeader,
+  type OptionalProfileInput,
 } from "@/types/resume";
 import { NextResponse } from "next/server";
 
@@ -28,6 +28,10 @@ type TailorRequestBody = {
   phone?: string;
   location?: string;
   linkedin?: string;
+  github?: string;
+  school?: string;
+  degree?: string;
+  graduationDate?: string;
 };
 
 export type TailorVariantResponse = {
@@ -140,12 +144,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const optionalHeader: Partial<ResumeHeader> = {
+    const optionalProfile: OptionalProfileInput = {
       name: body.name?.trim(),
       email: body.email?.trim(),
       phone: body.phone?.trim(),
       location: body.location?.trim(),
       linkedin: body.linkedin?.trim(),
+      github: body.github?.trim(),
+      school: body.school?.trim(),
+      degree: body.degree?.trim(),
+      graduationDate: body.graduationDate?.trim(),
     };
 
     const cacheKey = tailorInputHash(jobDescription, resumeBullets, template);
@@ -158,7 +166,7 @@ export async function POST(request: Request) {
     const modelText = await fetchMultiVariantResumeRawText({
       jobDescription,
       resumeBullets,
-      optionalHeader,
+      optionalProfile,
     });
 
     console.log("[tailor] RAW MODEL OUTPUT:\n", modelText);
@@ -198,7 +206,7 @@ export async function POST(request: Request) {
 
     for (const entry of parsed.variants) {
       let data = normalizeResumeData(entry.resume);
-      data = mergeOptionalHeader(data, optionalHeader);
+      data = mergeOptionalProfile(data, optionalProfile);
       try {
         assertResumeDataUsable(data);
       } catch (validationErr) {

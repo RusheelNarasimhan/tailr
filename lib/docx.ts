@@ -1,15 +1,24 @@
 import {
   AlignmentType,
   Document,
+  ExternalHyperlink,
   Packer,
   Paragraph,
   TextRun,
 } from "docx";
 import type { LatexTemplateId, ResumeData } from "@/types/resume";
 
+const ACCENT = "2B6CB0";
+
 const SPACING: Record<
   LatexTemplateId,
-  { sectionBefore: number; sectionAfter: number; expBefore: number; bulletAfter: number; nameAfter: number }
+  {
+    sectionBefore: number;
+    sectionAfter: number;
+    expBefore: number;
+    bulletAfter: number;
+    nameAfter: number;
+  }
 > = {
   compact: {
     sectionBefore: 160,
@@ -37,9 +46,24 @@ const SPACING: Record<
 function sectionHeading(text: string, template: LatexTemplateId): Paragraph {
   const s = SPACING[template];
   return new Paragraph({
-    children: [new TextRun({ text, bold: true, size: template === "compact" ? 22 : 24 })],
+    children: [
+      new TextRun({
+        text,
+        bold: true,
+        color: ACCENT,
+        size: template === "compact" ? 22 : 24,
+      }),
+    ],
     spacing: { before: s.sectionBefore, after: s.sectionAfter },
   });
+}
+
+function githubUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  const path = t.replace(/^github\.com\/?/i, "").replace(/^\//, "");
+  return `https://github.com/${path}`;
 }
 
 export async function generateDocxResume(
@@ -58,6 +82,7 @@ export async function generateDocxResume(
         new TextRun({
           text: data.header.name.trim() || "Candidate",
           bold: true,
+          color: ACCENT,
           size: nameSize,
         }),
       ],
@@ -65,76 +90,182 @@ export async function generateDocxResume(
     }),
   );
 
-  const contactBits: string[] = [];
-  if (data.header.email) contactBits.push(data.header.email);
-  if (data.header.phone) contactBits.push(data.header.phone);
-  if (data.header.location) contactBits.push(data.header.location);
-  if (data.header.linkedin) contactBits.push(data.header.linkedin);
+  const contactRuns: (TextRun | ExternalHyperlink)[] = [];
+  const bits: string[] = [];
+  if (data.header.email) bits.push(data.header.email);
+  if (data.header.phone) bits.push(data.header.phone);
+  if (data.header.location) bits.push(data.header.location);
+  if (data.header.linkedin) bits.push(data.header.linkedin);
+
+  if (bits.length) {
+    contactRuns.push(
+      new TextRun({
+        text: bits.join(" · "),
+        size: template === "compact" ? 18 : 20,
+      }),
+    );
+  }
+
+  const ghUrl = githubUrl(data.header.github);
+  if (ghUrl) {
+    if (contactRuns.length) {
+      contactRuns.push(
+        new TextRun({ text: " · ", size: template === "compact" ? 18 : 20 }),
+      );
+    }
+    contactRuns.push(
+      new ExternalHyperlink({
+        link: ghUrl,
+        children: [
+          new TextRun({
+            text: ghUrl.replace(/^https?:\/\/(www\.)?/i, ""),
+            color: ACCENT,
+            underline: {},
+            size: template === "compact" ? 18 : 20,
+          }),
+        ],
+      }),
+    );
+  }
 
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({
-          text: contactBits.length ? contactBits.join(" · ") : " ",
-          size: template === "compact" ? 18 : 20,
-        }),
-      ],
+      children: contactRuns.length
+        ? contactRuns
+        : [new TextRun({ text: " ", size: 20 })],
       spacing: { after: s.sectionBefore },
     }),
   );
 
-  children.push(sectionHeading("SUMMARY", template));
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: data.summary.trim() || " ", size: bodySize })],
-      spacing: { after: s.sectionAfter },
-    }),
-  );
-
-  children.push(sectionHeading("SKILLS", template));
-  const skillRows: [string, string[]][] = [
-    ["Languages", data.skills.languages],
-    ["Tools", data.skills.tools],
-    ["Concepts", data.skills.concepts],
-  ];
-  let anySkill = false;
-  for (const [label, items] of skillRows) {
-    if (!items.length) continue;
-    anySkill = true;
+  if (data.summary.trim()) {
+    children.push(sectionHeading("SUMMARY", template));
     children.push(
       new Paragraph({
         children: [
-          new TextRun({ text: `${label}: `, bold: true, size: bodySize }),
-          new TextRun({ text: items.join(", "), size: bodySize }),
+          new TextRun({ text: data.summary.trim(), size: bodySize }),
         ],
-        spacing: { after: 100 },
-      }),
-    );
-  }
-  if (!anySkill) {
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: "(No skills listed.)", italics: true, size: bodySize })],
         spacing: { after: s.sectionAfter },
       }),
     );
   }
 
-  children.push(sectionHeading("EXPERIENCE", template));
-  let anyExp = false;
-  for (const job of data.experience) {
-    if (!job.title.trim() && job.bullets.length === 0) continue;
-    anyExp = true;
-    if (job.title.trim()) {
+  if (data.education.length) {
+    children.push(sectionHeading("EDUCATION", template));
+    for (const e of data.education) {
+      const line1: TextRun[] = [];
+      if (e.degree) {
+        line1.push(new TextRun({ text: e.degree, bold: true, size: bodySize }));
+      }
+      if (e.graduationDate) {
+        line1.push(
+          new TextRun({ text: "\t", size: bodySize }),
+          new TextRun({
+            text: `Graduated: ${e.graduationDate}`,
+            italics: true,
+            color: ACCENT,
+            size: bodySize,
+          }),
+        );
+      }
+      if (line1.length) {
+        children.push(
+          new Paragraph({ children: line1, spacing: { after: 60 } }),
+        );
+      }
+      if (e.school) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: e.school, italics: true, size: bodySize }),
+            ],
+            spacing: { after: 40 },
+          }),
+        );
+      }
+      if (e.details) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: e.details, size: bodySize }),
+            ],
+            spacing: { after: s.sectionAfter },
+          }),
+        );
+      }
+    }
+  }
+
+  if (data.skills.some((g) => g.items.length)) {
+    children.push(sectionHeading("SKILLS", template));
+    for (const group of data.skills) {
+      if (!group.items.length) continue;
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: job.title.trim(),
+              text: `${group.category}: `,
+              bold: true,
+              size: bodySize,
+            }),
+            new TextRun({
+              text: group.items.join(", "),
+              size: bodySize,
+            }),
+          ],
+          spacing: { after: 80 },
+        }),
+      );
+    }
+  }
+
+  if (data.jobFit.length) {
+    children.push(sectionHeading("ROLE FIT", template));
+    for (const item of data.jobFit) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${item.requirement || "Requirement"}: `,
+              bold: true,
+              size: bodySize,
+            }),
+            new TextRun({ text: item.response, size: bodySize }),
+          ],
+          spacing: { after: 100 },
+          bullet: { level: 0 },
+        }),
+      );
+    }
+  }
+
+  children.push(sectionHeading("EXPERIENCE", template));
+  let anyExp = false;
+  for (const job of data.experience) {
+    if (!job.title.trim() && !job.company.trim() && job.bullets.length === 0)
+      continue;
+    anyExp = true;
+    const headerParts = [job.title.trim(), job.company.trim(), job.dates.trim()]
+      .filter(Boolean)
+      .join(" · ");
+    if (headerParts) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: job.title.trim() || job.company.trim(),
               bold: true,
               size: template === "academic" ? 22 : 24,
             }),
+            ...(job.company.trim() || job.dates.trim()
+              ? [
+                  new TextRun({
+                    text: ` — ${[job.company.trim(), job.dates.trim()].filter(Boolean).join(" · ")}`,
+                    italics: true,
+                    size: bodySize,
+                  }),
+                ]
+              : []),
           ],
           spacing: { before: s.expBefore, after: 100 },
         }),
@@ -153,7 +284,13 @@ export async function generateDocxResume(
   if (!anyExp) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: "(No experience listed.)", italics: true, size: bodySize })],
+        children: [
+          new TextRun({
+            text: "(No experience listed.)",
+            italics: true,
+            size: bodySize,
+          }),
+        ],
       }),
     );
   }

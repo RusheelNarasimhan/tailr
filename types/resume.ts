@@ -1,7 +1,7 @@
 export type LatexTemplateId = "compact" | "modern" | "academic";
 
 export const LATEX_TEMPLATES: { id: LatexTemplateId; label: string }[] = [
-  { id: "compact", label: "Compact" },
+  { id: "compact", label: "Compact (2-page max)" },
   { id: "modern", label: "Modern" },
   { id: "academic", label: "Academic" },
 ];
@@ -16,6 +16,24 @@ export type ResumeHeader = {
   phone: string;
   location: string;
   linkedin: string;
+  github: string;
+};
+
+export type EducationItem = {
+  school: string;
+  degree: string;
+  graduationDate: string;
+  details: string;
+};
+
+export type SkillGroup = {
+  category: string;
+  items: string[];
+};
+
+export type JobFitItem = {
+  requirement: string;
+  response: string;
 };
 
 export type ScoredBullet = {
@@ -23,22 +41,26 @@ export type ScoredBullet = {
   score: number;
 };
 
-export type ResumeSkills = {
-  languages: string[];
-  tools: string[];
-  concepts: string[];
-};
-
 export type ResumeExperienceItem = {
   title: string;
+  company: string;
+  dates: string;
   bullets: ScoredBullet[];
 };
 
 export type ResumeData = {
   header: ResumeHeader;
   summary: string;
-  skills: ResumeSkills;
+  education: EducationItem[];
+  skills: SkillGroup[];
+  jobFit: JobFitItem[];
   experience: ResumeExperienceItem[];
+};
+
+export type OptionalProfileInput = Partial<ResumeHeader> & {
+  school?: string;
+  degree?: string;
+  graduationDate?: string;
 };
 
 export type JobKeywords = {
@@ -84,23 +106,86 @@ function asScoredBulletArray(v: unknown): ScoredBullet[] {
   return out.sort((a, b) => b.score - a.score);
 }
 
+function normalizeSkillGroups(skillsRaw: unknown): SkillGroup[] {
+  if (!skillsRaw || typeof skillsRaw !== "object") return [];
+
+  if (Array.isArray(skillsRaw)) {
+    return skillsRaw
+      .filter((g): g is Record<string, unknown> => !!g && typeof g === "object")
+      .map((g) => ({
+        category: asString(g.category) || "Skills",
+        items: asStringArray(g.items),
+      }))
+      .filter((g) => g.items.length > 0);
+  }
+
+  const legacy = skillsRaw as Record<string, unknown>;
+  const groups: SkillGroup[] = [];
+  const map: [string, string][] = [
+    ["Technical", "technical"],
+    ["Languages", "languages"],
+    ["Frameworks & Tools", "tools"],
+    ["Tools", "tools"],
+    ["Concepts", "concepts"],
+    ["Soft Skills", "softSkills"],
+  ];
+  const seen = new Set<string>();
+  for (const [label, key] of map) {
+    const items = asStringArray(legacy[key]);
+    if (items.length && !seen.has(label)) {
+      seen.add(label);
+      groups.push({ category: label, items });
+    }
+  }
+  return groups;
+}
+
+function normalizeEducation(raw: unknown): EducationItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+    .map((e) => ({
+      school: asString(e.school),
+      degree: asString(e.degree),
+      graduationDate: asString(e.graduationDate ?? e.graduation ?? e.date),
+      details: asString(e.details),
+    }))
+    .filter((e) => e.school || e.degree || e.graduationDate);
+}
+
+function normalizeJobFit(raw: unknown): JobFitItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((j): j is Record<string, unknown> => !!j && typeof j === "object")
+    .map((j) => ({
+      requirement: asString(j.requirement ?? j.question),
+      response: asString(j.response ?? j.answer),
+    }))
+    .filter((j) => j.requirement || j.response)
+    .slice(0, 5);
+}
+
 export function normalizeResumeData(input: unknown): ResumeData {
   if (!input || typeof input !== "object") {
     throw new Error("Resume data must be an object");
   }
   const o = input as Record<string, unknown>;
 
-  const headerRaw = o.header && typeof o.header === "object" ? (o.header as Record<string, unknown>) : {};
-  const skillsRaw = o.skills && typeof o.skills === "object" ? (o.skills as Record<string, unknown>) : {};
+  const headerRaw =
+    o.header && typeof o.header === "object"
+      ? (o.header as Record<string, unknown>)
+      : {};
 
   const experienceRaw = Array.isArray(o.experience) ? o.experience : [];
   const experience: ResumeExperienceItem[] = experienceRaw.map((item) => {
     if (!item || typeof item !== "object") {
-      return { title: "", bullets: [] };
+      return { title: "", company: "", dates: "", bullets: [] };
     }
     const e = item as Record<string, unknown>;
     return {
       title: asString(e.title),
+      company: asString(e.company),
+      dates: asString(e.dates),
       bullets: asScoredBulletArray(e.bullets),
     };
   });
@@ -112,22 +197,21 @@ export function normalizeResumeData(input: unknown): ResumeData {
       phone: asString(headerRaw.phone),
       location: asString(headerRaw.location),
       linkedin: asString(headerRaw.linkedin),
+      github: asString(headerRaw.github),
     },
     summary: asString(o.summary),
-    skills: {
-      languages: asStringArray(skillsRaw.languages),
-      tools: asStringArray(skillsRaw.tools),
-      concepts: asStringArray(skillsRaw.concepts),
-    },
+    education: normalizeEducation(o.education),
+    skills: normalizeSkillGroups(o.skills),
+    jobFit: normalizeJobFit(o.jobFit),
     experience,
   };
 }
 
-export function mergeOptionalHeader(
+export function mergeOptionalProfile(
   data: ResumeData,
-  partial: Partial<ResumeHeader>,
+  partial: OptionalProfileInput,
 ): ResumeData {
-  return {
+  const next = {
     ...data,
     header: {
       name: partial.name?.trim() || data.header.name,
@@ -135,17 +219,40 @@ export function mergeOptionalHeader(
       phone: partial.phone?.trim() || data.header.phone,
       location: partial.location?.trim() || data.header.location,
       linkedin: partial.linkedin?.trim() || data.header.linkedin,
+      github: partial.github?.trim() || data.header.github,
     },
   };
+
+  const school = partial.school?.trim();
+  const degree = partial.degree?.trim();
+  const graduationDate = partial.graduationDate?.trim();
+
+  if (school || degree || graduationDate) {
+    const existing = [...next.education];
+    const first = existing[0] ?? {
+      school: "",
+      degree: "",
+      graduationDate: "",
+      details: "",
+    };
+    existing[0] = {
+      school: school || first.school,
+      degree: degree || first.degree,
+      graduationDate: graduationDate || first.graduationDate,
+      details: first.details,
+    };
+    next.education = existing;
+  }
+
+  return next;
 }
 
 export function assertResumeDataUsable(data: ResumeData): void {
   const hasBody =
     data.summary.length > 0 ||
-    data.skills.languages.length +
-      data.skills.tools.length +
-      data.skills.concepts.length >
-      0 ||
+    data.education.length > 0 ||
+    data.skills.some((g) => g.items.length > 0) ||
+    data.jobFit.length > 0 ||
     data.experience.some(
       (e) => e.title.length > 0 || e.bullets.length > 0,
     );
@@ -179,4 +286,12 @@ export function normalizeQuality(input: unknown): ResumeQuality {
   }
   const feedback = asStringArray(o.feedback);
   return { score, feedback: feedback.slice(0, 8) };
+}
+
+/** @deprecated use mergeOptionalProfile */
+export function mergeOptionalHeader(
+  data: ResumeData,
+  partial: Partial<ResumeHeader>,
+): ResumeData {
+  return mergeOptionalProfile(data, partial);
 }

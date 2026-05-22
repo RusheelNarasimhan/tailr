@@ -15,6 +15,10 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
   const [linkedin, setLinkedin] = useState("");
+  const [github, setGithub] = useState("");
+  const [school, setSchool] = useState("");
+  const [degree, setDegree] = useState("");
+  const [graduationDate, setGraduationDate] = useState("");
   const [resumeBullets, setResumeBullets] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [template, setTemplate] = useState<LatexTemplateId>("modern");
@@ -38,6 +42,10 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           phone,
           location,
           linkedin,
+          github,
+          school,
+          degree,
+          graduationDate,
           resumeBullets,
           jobDescription,
           template,
@@ -104,8 +112,9 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
             ))}
           </select>
         </div>
-        <p className="text-xs text-[#f0ede6]/40">
-          Compact = dense · Modern = balanced · Academic = section-heavy
+        <p className="text-xs text-[#f0ede6]/40 max-w-md">
+          Compact fits 2 pages max with accent color, bold skill groups, graduation
+          dates, GitHub, and role-fit answers from the job posting.
         </p>
       </div>
 
@@ -118,7 +127,26 @@ export default function TailorForm({ onResult, onUpgradeRequired }: TailorFormPr
           <input className={inputSm} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <input className={inputSm} placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <input className={inputSm} placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
-          <input className={`${inputSm} sm:col-span-2`} placeholder="LinkedIn URL" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+          <input className={inputSm} placeholder="LinkedIn URL" value={linkedin} onChange={(e) => setLinkedin(e.target.value)} />
+          <input
+            className={inputSm}
+            placeholder="GitHub (github.com/you or full URL)"
+            value={github}
+            onChange={(e) => setGithub(e.target.value)}
+          />
+        </div>
+        <p className="mt-3 mb-2 text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40">
+          Education (optional — graduation date shown on resume)
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <input className={inputSm} placeholder="School" value={school} onChange={(e) => setSchool(e.target.value)} />
+          <input className={inputSm} placeholder="Degree" value={degree} onChange={(e) => setDegree(e.target.value)} />
+          <input
+            className={inputSm}
+            placeholder="Graduation (e.g. May 2026)"
+            value={graduationDate}
+            onChange={(e) => setGraduationDate(e.target.value)}
+          />
         </div>
       </div>
 

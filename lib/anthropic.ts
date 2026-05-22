@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { OptionalProfileInput } from "@/types/resume";
 
 export const TAILOR_SYSTEM_PROMPT =
   "You are an expert resume writer and ATS optimization specialist. Rewrite the provided resume bullet points to match the job description. Rules: preserve the same number of bullets, never fabricate experience, mirror keywords and phrasing from the job description, use strong action verbs, keep quantifiable metrics if they exist, keep each bullet to 1-2 lines, output ONLY the rewritten bullets one per line each starting with a bullet character, no explanation or intro text.";
@@ -16,38 +17,78 @@ The JSON shape is EXACTLY:
     {
       "label": "short label for this angle e.g. Technical leadership",
       "resume": {
-        "header": { "name": "", "email": "", "phone": "", "location": "", "linkedin": "" },
+        "header": {
+          "name": "",
+          "email": "",
+          "phone": "",
+          "location": "",
+          "linkedin": "",
+          "github": ""
+        },
         "summary": "",
-        "skills": { "languages": [], "tools": [], "concepts": [] },
-        "experience": [ { "title": "", "bullets": [ { "text": "", "score": 0.85 } ] } ]
+        "education": [
+          {
+            "school": "",
+            "degree": "",
+            "graduationDate": "May 2026",
+            "details": "GPA, honors, relevant coursework — optional, one line max"
+          }
+        ],
+        "skills": [
+          { "category": "Languages", "items": ["TypeScript", "Python"] },
+          { "category": "Frameworks & Tools", "items": ["React", "Next.js"] }
+        ],
+        "jobFit": [
+          {
+            "requirement": "What the posting asks for (quote or paraphrase)",
+            "response": "How this candidate meets it — concrete, 1-2 sentences"
+          }
+        ],
+        "experience": [
+          {
+            "title": "Role title",
+            "company": "Employer",
+            "dates": "Jan 2024 – Present",
+            "bullets": [
+              { "text": "Impact with metric — Why: brief rationale tied to the job", "score": 0.9 }
+            ]
+          }
+        ]
       }
     }
   ],
   "quality": {
     "score": 78,
-    "feedback": ["max 2 sentences each, specific to this resume vs job", "another concrete suggestion"]
+    "feedback": ["specific suggestion", "another"]
   }
 }
 
 You MUST return exactly 3 objects inside "variants". Each variant must:
-- Emphasize a different strength (e.g. depth vs breadth vs leadership vs impact).
-- Vary wording and section emphasis slightly while keeping facts consistent.
-- Never fabricate employers, dates, or credentials.
+- Emphasize a different strength (depth vs breadth vs leadership vs impact).
+- Vary wording and section emphasis while keeping facts consistent.
+- Never fabricate employers, dates, schools, graduation dates, or credentials.
 
-Job-specific optimization (all variants):
-1. From jobDescription, infer keywords.skills (domain skills), keywords.tools (software/platforms), keywords.actionVerbs (strong verbs the posting favors). Lists should be short (5–15 items each), plain strings, no stuffing.
-2. For every experience bullet: rewrite for natural keyword alignment, stronger impact, metrics where the source implied them; remove weak filler ("responsible for", "helped with" without outcome). ATS-friendly plain English.
-3. Each bullet MUST be an object { "text": "...", "score": 0.0-1.0 } where score is relevance to the job (fit + impact). Sort bullets by score descending within each role in your output. Drop or merge only redundant lines; keep the strongest bullets per variant (aim for quality over quantity).
+Formatting & readability (all variants):
+1. Design for easy scanning: short summary (2-3 lines max), clear section order, dense but not cramped — target ONE page when possible, NEVER exceed TWO pages when rendered (compact layout).
+2. Maximize space: remove filler words; merge redundant bullets; keep the strongest 3-5 bullets per role (score highest first).
+3. education MUST include graduationDate on every entry (e.g. "May 2026", "Expected Dec 2025"). If unknown from input, infer only if the user provided it in optionalProfile; otherwise use "".
+4. skills MUST be an array of { category, items } with 3-6 categories. Category names are bold labels in the export (e.g. Languages, Frameworks & Tools, Cloud & DevOps, Soft Skills). Each category: 4-10 concise items, comma-separated in spirit.
+5. header.github: full URL (https://github.com/username) when known; mention a clean, organized profile in summary or jobFit if relevant to the role — do not invent repos.
+6. jobFit: 3-5 items that directly answer explicit requirements or implicit questions in jobDescription (years of experience, stack, location, clearance, etc.). requirement = what is asked; response = proof from the candidate's real background.
+7. Experience bullets MUST explain WHY, not only WHAT. Use this pattern in text: "Strong outcome with metric — Why: one short clause linking approach or decision to what this job needs." Every bullet is { "text", "score" } with score 0.0-1.0 for job relevance; sort descending per role.
 
-quality.score: integer 0–100 summarizing keyword fit, clarity, and quantified impact for the strongest variant.
-quality.feedback: 2–5 short, specific strings referencing this job and these bullets (not generic career advice).
+Job-specific optimization:
+- keywords.skills, keywords.tools, keywords.actionVerbs: 5-15 plain strings each from jobDescription.
+- Mirror posting language naturally; ATS-friendly; no keyword stuffing.
+- quality.score: integer 0-100 for the strongest variant.
+- quality.feedback: 2-5 specific strings (readability, missing graduation date, weak jobFit, GitHub, bold skill groups, 2-page length, etc.).
 
 Rules:
-- Plain text only in strings.
+- Plain text only in strings (no HTML, no LaTeX).
 - All required keys present; use "" or [] when unknown.
 - experience.bullets are ONLY objects with "text" and "score", never raw strings.
 
-The user message JSON contains: jobDescription, resumeBullets (string[]), optionalHeader (optional fields).`;
+The user message JSON contains: jobDescription, resumeBullets (string[]), optionalProfile (optional header + education hints).`;
 
 export function getAnthropicClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -60,13 +101,7 @@ export function getAnthropicClient() {
 export type StructuredResumeInput = {
   jobDescription: string;
   resumeBullets: string[];
-  optionalHeader: Partial<{
-    name: string;
-    email: string;
-    phone: string;
-    location: string;
-    linkedin: string;
-  }>;
+  optionalProfile: OptionalProfileInput;
 };
 
 export async function fetchMultiVariantResumeRawText(
@@ -83,7 +118,7 @@ export async function fetchMultiVariantResumeRawText(
         content: JSON.stringify({
           jobDescription: input.jobDescription,
           resumeBullets: input.resumeBullets,
-          optionalHeader: input.optionalHeader,
+          optionalProfile: input.optionalProfile,
         }),
       },
     ],
