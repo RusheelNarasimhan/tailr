@@ -10,6 +10,7 @@ import {
 } from "@/lib/resumeCache";
 import { parseTailorModelOutput } from "@/lib/tailorModel";
 import type { TailorApiSuccessBody } from "@/lib/tailorApi";
+import { ensureUserProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import {
   isLatexTemplateId,
@@ -92,18 +93,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("uses_count,is_pro")
-      .eq("id", user.id)
-      .single();
+    const { profile, error: profileError } = await ensureUserProfile(supabase, user);
 
-    if (profileError) {
-      return NextResponse.json({ error: profileError.message }, { status: 500 });
-    }
-
-    if (!profile) {
-      return NextResponse.json({ error: "profile not found" }, { status: 500 });
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: profileError ?? "Could not load profile" },
+        { status: 500 },
+      );
     }
 
     if (profile.uses_count >= 3 && profile.is_pro === false) {

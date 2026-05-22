@@ -128,7 +128,7 @@ function AppPageInner() {
     return () => controller.abort();
   }, [searchParams, profileLoading, profile, router]);
 
-  // Fetch profile
+  // Fetch profile (auto-creates row if missing)
   useEffect(() => {
     async function fetchProfile() {
       const {
@@ -140,13 +140,22 @@ function AppPageInner() {
         return;
       }
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("uses_count,is_pro")
-        .eq("id", user.id)
-        .single();
-
-      if (data) setProfile(data as Profile);
+      try {
+        const res = await fetch("/api/profile", { credentials: "include" });
+        const data = (await res.json()) as {
+          profile?: Profile;
+          error?: string;
+        };
+        if (res.ok && data.profile) {
+          setProfile(data.profile);
+        } else if (data.error) {
+          setToast(data.error);
+          setTimeout(() => setToast(null), 6000);
+        }
+      } catch {
+        setToast("Could not load your account profile.");
+        setTimeout(() => setToast(null), 6000);
+      }
       setProfileLoading(false);
     }
 

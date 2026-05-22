@@ -1,3 +1,4 @@
+import { ensureUserProfile } from "@/lib/profiles";
 import { getProPriceLabel } from "@/lib/pricing";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
@@ -47,13 +48,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_pro, stripe_customer_id, subscription_status")
-      .eq("id", user.id)
-      .maybeSingle();
+    const { profile, error: profileError } = await ensureUserProfile(supabase, user);
 
-    if (profile?.is_pro === true) {
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: profileError ?? "Could not load profile" },
+        { status: 500 },
+      );
+    }
+
+    if (profile.is_pro === true) {
       return NextResponse.json({ alreadyPro: true as const });
     }
 

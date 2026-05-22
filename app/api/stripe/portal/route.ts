@@ -1,7 +1,5 @@
-import {
-  ensureBillingCustomer,
-  type ProfileBillingRow,
-} from "@/lib/stripeBilling";
+import { ensureBillingCustomer, type ProfileBillingRow } from "@/lib/stripeBilling";
+import { ensureUserProfile } from "@/lib/profiles";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
@@ -27,17 +25,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("is_pro,stripe_customer_id,stripe_subscription_id")
-      .eq("id", user.id)
-      .single();
+    const { profile, error: profileError } = await ensureUserProfile(supabase, user);
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "profile not found" }, { status: 500 });
+      return NextResponse.json(
+        { error: profileError ?? "Could not load profile" },
+        { status: 500 },
+      );
     }
 
-    const row = profile as ProfileBillingRow;
+    const row: ProfileBillingRow = profile;
 
     if (!row.is_pro) {
       return NextResponse.json(

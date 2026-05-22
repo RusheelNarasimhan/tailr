@@ -42,6 +42,11 @@ ON public.profiles
 FOR SELECT
 USING (auth.uid() = id);
 
+CREATE POLICY "profiles: insert own"
+ON public.profiles
+FOR INSERT
+WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "profiles: update own"
 ON public.profiles
 FOR UPDATE
