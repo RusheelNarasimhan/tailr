@@ -1,5 +1,6 @@
 "use client";
 
+import { formatAuthError } from "@/lib/authErrors";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,6 +30,7 @@ function LoginPageInner() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
 
   const origin =
     typeof window !== "undefined"
@@ -51,6 +53,36 @@ function LoginPageInner() {
     setStatus(null);
     setPassword("");
     setConfirmPassword("");
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+      setError("Enter your email above, then click Send reset link.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setStatus(null);
+
+    const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`;
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      trimmedEmail,
+      { redirectTo },
+    );
+
+    setLoading(false);
+
+    if (resetError) {
+      setError(formatAuthError(resetError, "signin"));
+      return;
+    }
+
+    setStatus("Password reset email sent. Open the link, set a password, then sign in.");
+    setForgotMode(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,13 +125,21 @@ function LoginPageInner() {
 
         if (signUpError) throw signUpError;
 
+        if (data.user?.identities?.length === 0) {
+          setError(
+            "This email is already registered. Sign in, or use Forgot password if you never set one.",
+          );
+          switchMode("signin");
+          return;
+        }
+
         if (data.session) {
           router.replace(getRedirectPath(searchParams));
           return;
         }
 
         setStatus(
-          "Account created. Check your email to confirm your address, then sign in.",
+          "Account created — check your email to confirm (including spam), then sign in here.",
         );
         switchMode("signin");
         setPassword("");
@@ -116,7 +156,7 @@ function LoginPageInner() {
 
       router.replace(getRedirectPath(searchParams));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed.");
+      setError(formatAuthError(err, mode));
     } finally {
       setLoading(false);
     }
@@ -170,7 +210,10 @@ function LoginPageInner() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form
+          onSubmit={forgotMode ? handleForgotPassword : handleSubmit}
+          className="space-y-3"
+        >
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium text-[#f0ede6]/70">
               Email
@@ -187,24 +230,44 @@ function LoginPageInner() {
             />
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium text-[#f0ede6]/70">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              required
-              minLength={6}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none transition focus:border-[#c9b87a]/60 focus:bg-white/[0.07]"
-            />
-          </div>
+          {forgotMode ? null : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-[#f0ede6]/70"
+                >
+                  Password
+                </label>
+                {mode === "signin" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotMode(true);
+                      setError(null);
+                      setStatus(null);
+                    }}
+                    className="text-xs text-[#c9b87a] hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                ) : null}
+              </div>
+              <input
+                id="password"
+                type="password"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 6 characters"
+                required
+                minLength={6}
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[#f0ede6] placeholder:text-[#f0ede6]/30 outline-none transition focus:border-[#c9b87a]/60 focus:bg-white/[0.07]"
+              />
+            </div>
+          )}
 
-          {mode === "signup" ? (
+          {mode === "signup" && !forgotMode ? (
             <div className="space-y-2">
               <label
                 htmlFor="confirmPassword"
@@ -226,17 +289,37 @@ function LoginPageInner() {
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
-          >
-            {loading
-              ? "Please wait…"
-              : mode === "signin"
-                ? "Sign in"
-                : "Create account"}
-          </button>
+          {forgotMode ? (
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+              >
+                {loading ? "Sending…" : "Send reset link"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setForgotMode(false)}
+                className="text-sm text-[#f0ede6]/50 hover:text-[#f0ede6]"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex w-full items-center justify-center rounded-xl bg-[#c9b87a] px-4 py-3 text-sm font-semibold text-[#0a0a0a] transition hover:opacity-90 disabled:opacity-60"
+            >
+              {loading
+                ? "Please wait…"
+                : mode === "signin"
+                  ? "Sign in"
+                  : "Create account"}
+            </button>
+          )}
         </form>
 
         {error ? (
