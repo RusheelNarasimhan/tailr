@@ -74,11 +74,12 @@ export async function POST(request: Request) {
       },
       success_url: `${appUrl}/app?upgraded=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/app`,
-      ...(profile?.stripe_customer_id
+      ...(profile.stripe_customer_id
         ? { customer: profile.stripe_customer_id }
-        : user.email
-          ? { customer_email: user.email }
-          : {}),
+        : {
+            customer_email: user.email ?? undefined,
+            customer_creation: "always",
+          }),
     };
 
     const session = await stripe.checkout.sessions.create(sessionParams);

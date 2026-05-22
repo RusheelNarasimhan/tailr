@@ -1,4 +1,4 @@
-import { ensureBillingCustomer, type ProfileBillingRow } from "@/lib/stripeBilling";
+import { ensureBillingCustomer } from "@/lib/stripeBilling";
 import { ensureUserProfile } from "@/lib/profiles";
 import { getStripe } from "@/lib/stripe";
 import { createClient } from "@/lib/supabase/server";
@@ -34,21 +34,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const row: ProfileBillingRow = profile;
-
-    if (!row.is_pro) {
+    if (!profile.is_pro) {
       return NextResponse.json(
         { error: "Subscribe to Pro to manage billing." },
         { status: 400 },
       );
     }
 
+    if (!user.email) {
+      return NextResponse.json(
+        { error: "Your account needs an email address to open billing." },
+        { status: 400 },
+      );
+    }
+
     const stripe = getStripe();
-    const { customerId, error: resolveError } = await ensureBillingCustomer(
+    const { customerId, error: resolveError, notice } = await ensureBillingCustomer(
       stripe,
       user.id,
       user.email,
-      row,
+      profile,
     );
 
     if (!customerId) {
@@ -65,7 +70,7 @@ export async function POST(request: Request) {
       return_url: `${appUrl}/app`,
     });
 
-    return NextResponse.json({ url: portal.url });
+    return NextResponse.json({ url: portal.url, notice });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     console.error("[stripe/portal]", message);

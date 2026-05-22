@@ -166,8 +166,13 @@ function AppPageInner() {
     setBillingLoading(true);
     try {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
-      const data = (await res.json()) as { url?: string; error?: string };
+      const data = (await res.json()) as {
+        url?: string;
+        error?: string;
+        notice?: string;
+      };
       if (data.url) {
+        if (data.notice) setToast(data.notice);
         window.location.href = data.url;
         return;
       }
