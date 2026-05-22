@@ -51,7 +51,7 @@ See `.env.example`. Important:
 | `/api/tailor` | Generate 3 variants (LaTeX + DOCX) |
 | `/api/stripe/checkout` | Start Pro subscription checkout |
 | `/api/stripe/confirm` | Confirm subscription after redirect (local dev) |
-| `/api/stripe/portal` | Stripe billing portal (manage / cancel) |
+| `/api/stripe/portal` | Stripe customer portal (manage / cancel subscription) |
 | `/api/stripe/webhook` | Stripe webhook (subscription lifecycle) |
 
 ## Resume layouts

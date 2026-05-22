@@ -39,9 +39,14 @@ Enable:
 
 **Settings → Billing → Customer portal** → enable and save.
 
+- Turn on **Customers can cancel subscriptions** (recommend cancel at end of billing period).
+- Users open it from the app via **Manage subscription**.
+
 ## 5. Supabase migration
 
 Run `supabase/subscription.sql` in the SQL editor if `profiles` lacks Stripe columns.
+
+Then run `supabase/subscription-period.sql` for cancellation date fields (`subscription_period_end`, `subscription_cancel_at_period_end`).
 
 ## 6. Local testing
 

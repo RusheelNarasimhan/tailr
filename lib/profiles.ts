@@ -9,10 +9,12 @@ export type UserProfile = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: string | null;
+  subscription_cancel_at_period_end: boolean;
+  subscription_period_end: string | null;
 };
 
 export const PROFILE_COLUMNS =
-  "id,email,is_pro,uses_count,stripe_customer_id,stripe_subscription_id,subscription_status";
+  "id,email,is_pro,uses_count,stripe_customer_id,stripe_subscription_id,subscription_status,subscription_cancel_at_period_end,subscription_period_end";
 
 export async function ensureUserProfile(
   supabase: SupabaseClient,

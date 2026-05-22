@@ -50,7 +50,7 @@ const FAQ = [
   },
   {
     q: "How is pricing structured?",
-    a: `Three free tailoring runs, then Pro at ${getProPriceLabel()} for unlimited use. Cancel anytime from the billing portal.`,
+    a: `Three free tailoring runs, then Pro at ${getProPriceLabel()} for unlimited use. Cancel anytime from manage subscription; access continues through the end of the paid month.`,
   },
   {
     q: "How long should my resume be?",
@@ -231,7 +231,7 @@ export default function Home() {
                   <span className="text-[#c9b87a]">✓</span> LaTeX & Word exports
                 </li>
                 <li className="flex gap-2">
-                  <span className="text-[#c9b87a]">✓</span> Manage billing in Stripe portal
+                  <span className="text-[#c9b87a]">✓</span> Manage or cancel subscription in Stripe
                 </li>
               </ul>
               <Link

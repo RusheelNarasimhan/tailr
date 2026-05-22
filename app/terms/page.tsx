@@ -41,7 +41,8 @@ export default function TermsPage() {
             <h2 className="text-base font-semibold text-[#f0ede6]">Payments</h2>
             <p className="mt-2">
               Pro is a recurring monthly subscription billed through Stripe.
-              You may cancel anytime via the billing portal; access continues
+              You may cancel anytime via manage subscription in the app (Stripe
+              customer portal); access continues
               through the end of the paid period unless otherwise stated at
               checkout. Refunds are handled at the operator&apos;s discretion
               unless required by law.

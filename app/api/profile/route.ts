@@ -1,4 +1,8 @@
 import { ensureUserProfile } from "@/lib/profiles";
+import {
+  refreshProfileSubscriptionFromStripe,
+  toClientProfile,
+} from "@/lib/profileSubscription";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -23,7 +27,12 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ profile });
+    let current = profile;
+    if (profile.is_pro && profile.stripe_subscription_id) {
+      current = await refreshProfileSubscriptionFromStripe(user.id, profile);
+    }
+
+    return NextResponse.json({ profile: toClientProfile(current) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -1,25 +1,22 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import OutputPanel, { type TailorResult } from "@/components/OutputPanel";
+import SubscriptionBanner from "@/components/SubscriptionBanner";
 import TailorForm from "@/components/TailorForm";
 import UpgradeModal from "@/components/UpgradeModal";
 import UsageBar from "@/components/UsageBar";
+import type { ClientProfile } from "@/lib/profileSubscription";
 import { useFadeIn } from "@/lib/hooks/useFadeIn";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
-
-type Profile = {
-  uses_count: number;
-  is_pro: boolean;
-};
 
 function AppPageInner() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [output, setOutput] = useState<TailorResult | null>(null);
   const [tailorLoading, setTailorLoading] = useState(false);
@@ -32,6 +29,36 @@ function AppPageInner() {
   const outputRef = useFadeIn(250);
 
   const searchParams = useSearchParams();
+
+  const loadProfile = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/profile", { credentials: "include" });
+      const data = (await res.json()) as {
+        profile?: ClientProfile;
+        error?: string;
+      };
+      if (res.ok && data.profile) {
+        setProfile(data.profile);
+      } else if (data.error) {
+        setToast(data.error);
+        setTimeout(() => setToast(null), 6000);
+      }
+    } catch {
+      setToast("Could not load your account profile.");
+      setTimeout(() => setToast(null), 6000);
+    }
+    setProfileLoading(false);
+  }, [supabase]);
 
   // After Stripe checkout: confirm payment server-side (webhooks don't hit localhost).
   useEffect(() => {
@@ -66,18 +93,7 @@ function AppPageInner() {
           setToast("Pro subscription active — unlimited tailoring unlocked");
           toastTimer = setTimeout(() => setToast(null), 4000);
 
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (!user) return;
-
-          const { data } = await supabase
-            .from("profiles")
-            .select("uses_count,is_pro")
-            .eq("id", user.id)
-            .single();
-
-          if (data) setProfile(data as Profile);
+          await loadProfile();
           router.replace("/app");
         } catch {
           setToast("Upgrade confirmation failed. Check your connection and try again.");
@@ -92,7 +108,7 @@ function AppPageInner() {
     return () => {
       if (toastTimer) clearTimeout(toastTimer);
     };
-  }, [searchParams, supabase, router]);
+  }, [searchParams, loadProfile, router]);
 
   // Start Stripe checkout only for non‑Pro users (avoid paywall if already upgraded).
   useEffect(() => {
@@ -128,41 +144,26 @@ function AppPageInner() {
     return () => controller.abort();
   }, [searchParams, profileLoading, profile, router]);
 
-  // Fetch profile (auto-creates row if missing)
   useEffect(() => {
-    async function fetchProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    void loadProfile();
+  }, [loadProfile]);
 
-      if (!user) {
-        setProfileLoading(false);
-        return;
+  // Refresh subscription state after returning from Stripe portal
+  useEffect(() => {
+    function onFocus() {
+      if (document.visibilityState === "visible") {
+        void loadProfile();
       }
-
-      try {
-        const res = await fetch("/api/profile", { credentials: "include" });
-        const data = (await res.json()) as {
-          profile?: Profile;
-          error?: string;
-        };
-        if (res.ok && data.profile) {
-          setProfile(data.profile);
-        } else if (data.error) {
-          setToast(data.error);
-          setTimeout(() => setToast(null), 6000);
-        }
-      } catch {
-        setToast("Could not load your account profile.");
-        setTimeout(() => setToast(null), 6000);
-      }
-      setProfileLoading(false);
     }
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [loadProfile]);
 
-    void fetchProfile();
-  }, [supabase]);
-
-  async function handleManageBilling() {
+  async function handleManageSubscription() {
     setBillingLoading(true);
     try {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
@@ -176,10 +177,10 @@ function AppPageInner() {
         window.location.href = data.url;
         return;
       }
-      setToast(data.error ?? "Could not open billing portal.");
+      setToast(data.error ?? "Could not open subscription management.");
       setTimeout(() => setToast(null), 5000);
     } catch {
-      setToast("Billing portal unavailable. Try again later.");
+      setToast("Subscription portal unavailable. Try again later.");
       setTimeout(() => setToast(null), 5000);
     } finally {
       setBillingLoading(false);
@@ -205,10 +206,20 @@ function AppPageInner() {
       <Navbar
         isPro={profile?.is_pro}
         onUpgrade={() => setShowUpgrade(true)}
-        onManageBilling={profile?.is_pro ? handleManageBilling : undefined}
+        onManageSubscription={profile?.is_pro ? handleManageSubscription : undefined}
+        billingLoading={billingLoading}
       />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8 sm:py-10">
+        {profile?.is_pro ? (
+          <SubscriptionBanner
+            cancelAtPeriodEnd={profile.subscription_cancel_at_period_end}
+            periodEnd={profile.subscription_period_end}
+            onManageSubscription={handleManageSubscription}
+            billingLoading={billingLoading}
+          />
+        ) : null}
+
         <div
           ref={header}
           className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
@@ -230,8 +241,14 @@ function AppPageInner() {
             <UsageBar
               usesCount={profile.uses_count}
               isPro={profile.is_pro}
+              subscriptionCancelAtPeriodEnd={
+                profile.subscription_cancel_at_period_end
+              }
+              subscriptionPeriodEnd={profile.subscription_period_end}
               onUpgrade={() => setShowUpgrade(true)}
-              onManageBilling={profile.is_pro ? handleManageBilling : undefined}
+              onManageSubscription={
+                profile.is_pro ? handleManageSubscription : undefined
+              }
               billingLoading={billingLoading}
             />
           ) : null}
@@ -253,19 +270,16 @@ function AppPageInner() {
       {showUpgrade && (
         <UpgradeModal
           isPro={profile?.is_pro ?? false}
+          subscriptionCancelAtPeriodEnd={
+            profile?.subscription_cancel_at_period_end ?? false
+          }
+          subscriptionPeriodEnd={profile?.subscription_period_end ?? null}
+          onManageSubscription={
+            profile?.is_pro ? handleManageSubscription : undefined
+          }
+          billingLoading={billingLoading}
           onClose={() => setShowUpgrade(false)}
-          onRefreshProfile={async () => {
-            const {
-              data: { user },
-            } = await supabase.auth.getUser();
-            if (!user) return;
-            const { data } = await supabase
-              .from("profiles")
-              .select("uses_count,is_pro")
-              .eq("id", user.id)
-              .single();
-            if (data) setProfile(data as Profile);
-          }}
+          onRefreshProfile={loadProfile}
         />
       )}
 

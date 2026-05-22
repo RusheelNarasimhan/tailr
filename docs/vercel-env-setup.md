@@ -30,4 +30,4 @@ Then: **Deployments** → latest deployment → **⋯** → **Redeploy** (so new
 3. Use all 3 free runs or click **Upgrade**
 4. Complete Stripe checkout (CA$4/month)
 5. You should return to the app as **Pro**
-6. **Manage billing** should open the Stripe portal
+6. **Manage subscription** should open the Stripe portal (cancel at period end)

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     if (!profile.is_pro) {
       return NextResponse.json(
-        { error: "Subscribe to Pro to manage billing." },
+        { error: "Subscribe to Pro to manage your subscription." },
         { status: 400 },
       );
     }

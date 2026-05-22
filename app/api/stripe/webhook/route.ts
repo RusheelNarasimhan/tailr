@@ -114,6 +114,8 @@ export async function POST(request: Request) {
           .update({
             is_pro: false,
             subscription_status: subscription.status,
+            subscription_cancel_at_period_end: false,
+            subscription_period_end: null,
           })
           .eq("id", userId);
       } else {

@@ -1,21 +1,35 @@
 "use client";
 
 import { getProPriceLabel, getProPriceShort } from "@/lib/pricing";
+import { getSubscriptionBillingView } from "@/lib/subscriptionDisplay";
 import { useState } from "react";
 
 type UpgradeModalProps = {
   onClose: () => void;
   isPro?: boolean;
+  subscriptionCancelAtPeriodEnd?: boolean;
+  subscriptionPeriodEnd?: string | null;
+  onManageSubscription?: () => void;
+  billingLoading?: boolean;
   onRefreshProfile?: () => void | Promise<void>;
 };
 
 export default function UpgradeModal({
   onClose,
   isPro = false,
+  subscriptionCancelAtPeriodEnd = false,
+  subscriptionPeriodEnd = null,
+  onManageSubscription,
+  billingLoading = false,
   onRefreshProfile,
 }: UpgradeModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { showProUntil, proUntilLabel } = getSubscriptionBillingView({
+    cancelAtPeriodEnd: subscriptionCancelAtPeriodEnd,
+    periodEnd: subscriptionPeriodEnd,
+  });
 
   async function handleUpgrade() {
     setLoading(true);
@@ -53,12 +67,36 @@ export default function UpgradeModal({
           <p className="section-label">Account</p>
           <h2 className="mt-2 text-xl font-semibold">You&apos;re on Pro</h2>
           <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
-            Your Pro subscription is active. Manage billing anytime from the app
-            menu.
+            {showProUntil && proUntilLabel ? (
+              <>
+                Your subscription is set to end on{" "}
+                <span className="font-medium text-[#f0ede6]/80">{proUntilLabel}</span>.
+                Pro access continues until then. Open manage subscription to
+                update payment details or cancel.
+              </>
+            ) : (
+              <>
+                Your Pro subscription is active. Use manage subscription to
+                update your card or cancel anytime (access continues through the
+                end of the paid month).
+              </>
+            )}
           </p>
-          <button type="button" onClick={onClose} className="btn-primary mt-6 w-full">
-            Continue tailoring
-          </button>
+          <div className="mt-6 flex flex-col gap-2">
+            {onManageSubscription ? (
+              <button
+                type="button"
+                onClick={onManageSubscription}
+                disabled={billingLoading}
+                className="btn-primary w-full disabled:opacity-60"
+              >
+                {billingLoading ? "Opening…" : "Manage subscription"}
+              </button>
+            ) : null}
+            <button type="button" onClick={onClose} className="btn-secondary w-full !py-2.5">
+              Continue tailoring
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -75,7 +113,7 @@ export default function UpgradeModal({
         <h2 className="mt-2 text-xl font-semibold">Unlock unlimited tailoring</h2>
         <p className="mt-3 text-sm leading-relaxed text-[#f0ede6]/55">
           You&apos;ve used your three free runs. Subscribe to Pro for unlimited
-          tailoring—cancel anytime from your billing portal.
+          tailoring—cancel anytime from manage subscription.
         </p>
 
         <ul className="mt-6 space-y-2 text-sm text-[#f0ede6]/65">
@@ -86,7 +124,7 @@ export default function UpgradeModal({
             <span className="text-[#c9b87a]">✓</span> All templates & exports
           </li>
           <li className="flex gap-2">
-            <span className="text-[#c9b87a]">✓</span> Cancel anytime via billing portal
+            <span className="text-[#c9b87a]">✓</span> Cancel anytime; keep Pro until period ends
           </li>
         </ul>
 

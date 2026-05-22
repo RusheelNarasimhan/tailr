@@ -1,41 +1,55 @@
 "use client";
 
 import { getProPriceLabel } from "@/lib/pricing";
+import { getSubscriptionBillingView } from "@/lib/subscriptionDisplay";
 
 type UsageBarProps = {
   usesCount: number;
   isPro: boolean;
+  subscriptionCancelAtPeriodEnd?: boolean;
+  subscriptionPeriodEnd?: string | null;
   onUpgrade?: () => void;
-  onManageBilling?: () => void;
+  onManageSubscription?: () => void;
   billingLoading?: boolean;
 };
 
 export default function UsageBar({
   usesCount,
   isPro,
+  subscriptionCancelAtPeriodEnd = false,
+  subscriptionPeriodEnd = null,
   onUpgrade,
-  onManageBilling,
+  onManageSubscription,
   billingLoading,
 }: UsageBarProps) {
   const max = 3;
   const remaining = Math.max(0, max - usesCount);
   const pct = Math.min((usesCount / max) * 100, 100);
 
+  const { showProUntil, proUntilLabel } = getSubscriptionBillingView({
+    cancelAtPeriodEnd: subscriptionCancelAtPeriodEnd,
+    periodEnd: subscriptionPeriodEnd,
+  });
+
   if (isPro) {
     return (
       <div className="flex flex-col items-end gap-2 sm:items-start">
         <div className="flex items-center gap-2 text-xs text-[#c9b87a]">
           <span>✓</span>
-          <span>Pro — unlimited</span>
+          <span>
+            {showProUntil && proUntilLabel
+              ? `Pro until ${proUntilLabel}`
+              : "Pro — unlimited"}
+          </span>
         </div>
-        {onManageBilling ? (
+        {onManageSubscription ? (
           <button
             type="button"
-            onClick={onManageBilling}
+            onClick={onManageSubscription}
             disabled={billingLoading}
             className="text-xs text-[#f0ede6]/45 underline transition hover:text-[#f0ede6] disabled:opacity-50"
           >
-            {billingLoading ? "Opening…" : "Manage billing"}
+            {billingLoading ? "Opening…" : "Manage subscription"}
           </button>
         ) : null}
       </div>

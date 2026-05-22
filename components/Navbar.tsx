@@ -10,10 +10,16 @@ import { useMemo } from "react";
 type NavbarProps = {
   isPro?: boolean;
   onUpgrade?: () => void;
-  onManageBilling?: () => void;
+  onManageSubscription?: () => void;
+  billingLoading?: boolean;
 };
 
-export default function Navbar({ isPro, onUpgrade, onManageBilling }: NavbarProps) {
+export default function Navbar({
+  isPro,
+  onUpgrade,
+  onManageSubscription,
+  billingLoading,
+}: NavbarProps) {
   const { user, loading } = useUser();
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -35,13 +41,14 @@ export default function Navbar({ isPro, onUpgrade, onManageBilling }: NavbarProp
                   <span className="hidden rounded-full border border-[#c9b87a]/35 bg-[#c9b87a]/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#c9b87a] sm:inline">
                     Pro
                   </span>
-                  {onManageBilling ? (
+                  {onManageSubscription ? (
                     <button
                       type="button"
-                      onClick={onManageBilling}
-                      className="hidden text-xs text-[#f0ede6]/50 transition hover:text-[#f0ede6] md:inline"
+                      onClick={onManageSubscription}
+                      disabled={billingLoading}
+                      className="hidden text-xs text-[#f0ede6]/50 transition hover:text-[#f0ede6] disabled:opacity-50 md:inline"
                     >
-                      Billing
+                      {billingLoading ? "Opening…" : "Subscription"}
                     </button>
                   ) : null}
                 </>

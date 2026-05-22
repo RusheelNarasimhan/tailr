@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
   subscription_status TEXT,
+  subscription_cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+  subscription_period_end TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
