@@ -5,24 +5,31 @@ import {
   splitCompanyAndDates,
 } from "@/lib/latex/escape";
 import { validateLatexDocument } from "@/lib/latex/validate";
+import type { ExperienceLevel } from "@/lib/resume/experienceLevel";
+import { sectionTitle, type ResumeSectionId } from "@/lib/resume/sectionOrder";
+import { buildRenderSectionOrder } from "@/lib/resume/renderPlan";
 import type { LatexTemplateId, ResumeData } from "@/types/resume";
 
 export { escapeLatex, repairLatexArtifacts, validateLatexDocument };
 
-const ACCENT_HTML = "2B6CB0";
+export type GenerateLatexOptions = {
+  experienceLevel?: ExperienceLevel;
+};
+
+const MARGINS: Record<LatexTemplateId, string> = {
+  compact: "\\usepackage[margin=0.5in]{geometry}",
+  modern: "\\usepackage[margin=0.6in]{geometry}",
+  academic: "\\usepackage[margin=0.65in]{geometry}",
+};
 
 function githubHref(raw: string): { url: string; label: string } | null {
   const t = raw.trim();
   if (!t) return null;
   if (/^https?:\/\//i.test(t)) {
-    const label = t.replace(/^https?:\/\/(www\.)?/i, "");
-    return { url: t, label };
+    return { url: t, label: t.replace(/^https?:\/\/(www\.)?/i, "") };
   }
   const path = t.replace(/^github\.com\/?/i, "").replace(/^\//, "");
-  return {
-    url: `https://github.com/${path}`,
-    label: `github.com/${path}`,
-  };
+  return { url: `https://github.com/${path}`, label: `github.com/${path}` };
 }
 
 function contactLine(data: ResumeData): string {
@@ -40,50 +47,13 @@ function contactLine(data: ResumeData): string {
   }
   const gh = githubHref(data.header.github);
   if (gh) {
-    parts.push(
-      `\\href{${escapeLatex(gh.url)}}{\\color{accent}${escapeLatex(gh.label)}}`,
-    );
+    parts.push(`\\href{${escapeLatex(gh.url)}}{${escapeLatex(gh.label)}}`);
   }
   return joinLatexParts(parts);
 }
 
-const TEMPLATE_PREAMBLE: Record<
-  LatexTemplateId,
-  { geometry: string; bodySize: string; extras: string[] }
-> = {
-  compact: {
-    geometry: "\\usepackage[margin=0.45in]{geometry}",
-    bodySize: "\\small",
-    extras: [
-      "\\setlength{\\parskip}{0.15em}",
-      "\\titleformat{\\section}{\\color{accent}\\normalsize\\bfseries}{}{0em}{}[\\color{accent}\\titlerule]",
-      "\\titlespacing*{\\section}{0pt}{0.5ex}{0.2ex}",
-    ],
-  },
-  modern: {
-    geometry: "\\usepackage[margin=0.65in]{geometry}",
-    bodySize: "",
-    extras: [
-      "\\titleformat{\\section}{\\color{accent}\\large\\bfseries}{}{0em}{}[\\color{accent}\\titlerule]",
-      "\\titlespacing*{\\section}{0pt}{1ex}{0.5ex}",
-    ],
-  },
-  academic: {
-    geometry: "\\usepackage[margin=0.75in]{geometry}",
-    bodySize: "",
-    extras: [
-      "\\titleformat{\\section}{\\color{accent}\\bfseries\\scshape}{}{0em}{}",
-      "\\titlespacing*{\\section}{0pt}{1.2ex}{0.4ex}",
-    ],
-  },
-};
-
-function sectionTitle(template: LatexTemplateId, name: string): string {
-  const upper = name.toUpperCase();
-  if (template === "academic") {
-    return `\\section*{${escapeLatex(name)}}`;
-  }
-  return `\\section*{${escapeLatex(upper)}}`;
+function latexSectionHeading(name: string): string {
+  return `\\section*{${escapeLatex(name.toUpperCase())}}`;
 }
 
 function renderSkills(data: ResumeData): string {
@@ -92,14 +62,13 @@ function renderSkills(data: ResumeData): string {
     .filter((g) => g.items.length > 0)
     .map(
       (g) =>
-        `\\noindent\\textbf{${escapeLatex(g.category)}:} ${g.items.map(escapeLatex).join(", ")}\n`,
+        `\\noindent\\textbf{${escapeLatex(g.category)}:} ${g.items.map(escapeLatex).join(", ")}\n\\vspace{0.25em}\n`,
     )
     .join("\n");
 }
 
-function renderEducation(data: ResumeData, template: LatexTemplateId): string {
+function renderEducation(data: ResumeData): string {
   if (!data.education.length) return "";
-  const tight = template === "compact" ? "\\vspace{-0.15em}" : "";
   return data.education
     .map((e) => {
       const degree = escapeLatex(e.degree);
@@ -110,12 +79,12 @@ function renderEducation(data: ResumeData, template: LatexTemplateId): string {
       if (degree || grad) {
         block += `\\noindent\\textbf{${degree || "Degree"}}`;
         if (grad) {
-          block += ` \\hfill \\textcolor{accent}{\\textit{Graduated: ${grad}}}`;
+          block += ` \\hfill ${grad}`;
         }
         block += `\\\\\n`;
       }
       if (school) {
-        block += `{\\textit{${school}}}${tight}\\\\\n`;
+        block += `{\\textit{${school}}}\\\\\n`;
       }
       if (details) {
         block += `{\\small ${details}}\\\\\n`;
@@ -126,25 +95,24 @@ function renderEducation(data: ResumeData, template: LatexTemplateId): string {
     .join("\n");
 }
 
-function renderJobFit(data: ResumeData): string {
-  if (!data.jobFit.length) return "";
-  let tex = "\\begin{itemize}[leftmargin=*,nosep,topsep=2pt,itemsep=3pt]\n";
-  for (const item of data.jobFit) {
-    const req = escapeLatex(item.requirement);
-    const res = escapeLatex(item.response);
-    tex += `\\item \\textbf{${req || "Requirement"}:} ${res}\n`;
+function renderBullets(
+  bullets: { text: string }[],
+  itemsep: string,
+  topsep: string,
+): string {
+  if (!bullets.length) return "";
+  let tex = `\\begin{itemize}[leftmargin=*,nosep,${topsep},${itemsep}]\n`;
+  for (const b of bullets) {
+    tex += `\\item ${escapeLatex(b.text)}\n`;
   }
   tex += "\\end{itemize}\n";
   return tex;
 }
 
-function renderExperience(
-  data: ResumeData,
-  template: LatexTemplateId,
-): string {
-  let expTex = "";
+function renderExperience(data: ResumeData, template: LatexTemplateId): string {
   const itemsep = template === "compact" ? "itemsep=1pt" : "itemsep=2pt";
   const topsep = template === "compact" ? "topsep=1pt" : "topsep=2pt";
+  let tex = "";
 
   for (const job of data.experience) {
     const split = splitCompanyAndDates(job.company, job.dates);
@@ -156,84 +124,118 @@ function renderExperience(
     if (title || company || dates) {
       const left = title || escapeLatex("Role");
       const right = joinLatexParts([company, dates].filter(Boolean));
-      expTex += `\\noindent\\textbf{${left}}`;
+      tex += `\\noindent\\textbf{${left}}`;
       if (right) {
-        expTex += ` \\hfill \\textit{${right}}`;
+        tex += ` \\hfill \\textit{${right}}`;
       }
-      expTex += `\\\\[0.15em]\n`;
+      tex += `\\\\[0.12em]\n`;
     }
-
-    if (job.bullets.length > 0) {
-      expTex += `\\begin{itemize}[leftmargin=*,nosep,${topsep},${itemsep}]\n`;
-      for (const b of job.bullets) {
-        expTex += `\\item ${escapeLatex(b.text)}\n`;
-      }
-      expTex += "\\end{itemize}\n\\vspace{0.4em}\n";
-    }
+    tex += renderBullets(job.bullets, itemsep, topsep);
+    tex += "\\vspace{0.35em}\n";
   }
-  return expTex;
+  return tex;
+}
+
+function renderProjects(data: ResumeData, template: LatexTemplateId): string {
+  const itemsep = template === "compact" ? "itemsep=1pt" : "itemsep=2pt";
+  const topsep = template === "compact" ? "topsep=1pt" : "topsep=2pt";
+  let tex = "";
+
+  for (const proj of data.projects ?? []) {
+    const name = escapeLatex(proj.name.trim());
+    const dates = escapeLatex(proj.dates.trim());
+    const stack = escapeLatex(proj.stack.trim());
+    if (!name && proj.bullets.length === 0) continue;
+
+    const right = joinLatexParts(
+      [dates, stack].filter(Boolean),
+    );
+    tex += `\\noindent\\textbf{${name || "Project"}}`;
+    if (right) {
+      tex += ` \\hfill \\textit{${right}}`;
+    }
+    tex += `\\\\[0.12em]\n`;
+    tex += renderBullets(proj.bullets, itemsep, topsep);
+    tex += "\\vspace{0.35em}\n";
+  }
+  return tex;
+}
+
+function renderSection(
+  id: ResumeSectionId,
+  data: ResumeData,
+  template: LatexTemplateId,
+  level: ExperienceLevel,
+): string | null {
+  switch (id) {
+    case "summary":
+      if (!data.summary.trim()) return null;
+      return `${latexSectionHeading(sectionTitle(id, level))}\n${escapeLatex(data.summary)}\n`;
+    case "education": {
+      const body = renderEducation(data);
+      return body ? `${latexSectionHeading(sectionTitle(id, level))}\n${body}` : null;
+    }
+    case "skills": {
+      const body = renderSkills(data);
+      return body ? `${latexSectionHeading(sectionTitle(id, level))}\n${body}` : null;
+    }
+    case "experience": {
+      const body = renderExperience(data, template);
+      return `${latexSectionHeading(sectionTitle(id, level))}\n${body.trim() || "\\textit{(No experience listed.)}"}\n`;
+    }
+    case "projects": {
+      const body = renderProjects(data, template);
+      if (!body.trim()) return null;
+      return `${latexSectionHeading(sectionTitle(id, level))}\n${body}`;
+    }
+    default:
+      return null;
+  }
 }
 
 export function generateLatexResume(
   data: ResumeData,
-  template: LatexTemplateId = "modern",
+  template: LatexTemplateId = "compact",
+  options?: GenerateLatexOptions,
 ): string {
-  const t = TEMPLATE_PREAMBLE[template];
+  const level = options?.experienceLevel ?? "experienced_engineer";
+  const order = buildRenderSectionOrder(data, level);
+
   const name = escapeLatex(data.header.name) || "Candidate";
   const contact = contactLine(data);
-  const summary = escapeLatex(data.summary);
-  const skillsTex = renderSkills(data);
-  const eduTex = renderEducation(data, template);
-  const jobFitTex = renderJobFit(data);
-  const expTex = renderExperience(data, template);
+  const bodySize = template === "compact" ? "\\fontsize{10.5}{12.5}\\selectfont" : "";
 
-  const nameSize = template === "compact" ? "\\Large" : "\\LARGE";
-  const headerSkip = template === "compact" ? "0.2em" : "0.35em";
-  const afterHeader = template === "compact" ? "0.3em" : "0.6em";
-
-  const blocks: string[] = [];
-
-  blocks.push(
+  const blocks: string[] = [
     "\\documentclass[11pt]{article}",
-    t.geometry,
+    MARGINS[template],
     "\\usepackage[utf8]{inputenc}",
-    "\\usepackage[dvipsnames]{xcolor}",
-    `\\definecolor{accent}{HTML}{${ACCENT_HTML}}`,
+    "\\usepackage[T1]{fontenc}",
+    "\\usepackage{helvet}",
+    "\\renewcommand{\\familydefault}{\\sfdefault}",
     "\\usepackage{enumitem}",
     "\\usepackage{titlesec}",
     "\\usepackage[hidelinks]{hyperref}",
-    ...t.extras,
     "\\pagestyle{empty}",
+    "\\setlength{\\parindent}{0pt}",
+    "\\titleformat{\\section}{\\normalsize\\bfseries}{}{0em}{}[\n\\titlerule]",
+    "\\titlespacing*{\\section}{0pt}{0.6ex}{0.25ex}",
     "\\begin{document}",
-    t.bodySize,
+    bodySize,
     "\\begin{center}",
-    `{${nameSize}\\bfseries\\color{accent} ${name}}\\\\[${headerSkip}]`,
-    `{\\small ${contact}}`,
+    "{\\Large\\bfseries " + name + "}\\\\[0.25em]",
+    "{\\small " + contact + "}",
     "\\end{center}",
-    `\\vspace{${afterHeader}}`,
-  );
+    "\\vspace{0.4em}",
+  ];
 
-  if (summary) {
-    blocks.push(sectionTitle(template, "Summary"), summary, "");
+  for (const sectionId of order) {
+    const chunk = renderSection(sectionId, data, template, level);
+    if (chunk) {
+      blocks.push(chunk, "");
+    }
   }
 
-  if (eduTex) {
-    blocks.push(sectionTitle(template, "Education"), eduTex);
-  }
-
-  if (skillsTex) {
-    blocks.push(sectionTitle(template, "Skills"), skillsTex);
-  }
-
-  if (jobFitTex) {
-    blocks.push(sectionTitle(template, "Role fit"), jobFitTex);
-  }
-
-  blocks.push(
-    sectionTitle(template, "Experience"),
-    expTex.trim() || "\\textit{(No experience listed.)}",
-    "\\end{document}",
-  );
+  blocks.push("\\end{document}");
 
   const raw = blocks.join("\n");
   const { repaired, valid, issues } = validateLatexDocument(raw);

@@ -3,9 +3,9 @@ import { polishBulletText } from "@/lib/resume/bullets";
 export type LatexTemplateId = "compact" | "modern" | "academic";
 
 export const LATEX_TEMPLATES: { id: LatexTemplateId; label: string }[] = [
-  { id: "compact", label: "Compact (2-page max)" },
-  { id: "modern", label: "Modern" },
-  { id: "academic", label: "Academic" },
+  { id: "compact", label: "Single column · 1 page (recommended)" },
+  { id: "modern", label: "Single column · standard spacing" },
+  { id: "academic", label: "Single column · roomy spacing" },
 ];
 
 export function isLatexTemplateId(s: string): s is LatexTemplateId {
@@ -50,13 +50,22 @@ export type ResumeExperienceItem = {
   bullets: ScoredBullet[];
 };
 
+export type ProjectItem = {
+  name: string;
+  dates: string;
+  stack: string;
+  bullets: ScoredBullet[];
+};
+
 export type ResumeData = {
   header: ResumeHeader;
   summary: string;
   education: EducationItem[];
   skills: SkillGroup[];
+  /** Deprecated in exports — kept for backward-compatible JSON only */
   jobFit: JobFitItem[];
   experience: ResumeExperienceItem[];
+  projects: ProjectItem[];
 };
 
 export type OptionalProfileInput = Partial<ResumeHeader> & {
@@ -178,6 +187,17 @@ export function normalizeResumeData(input: unknown): ResumeData {
       ? (o.header as Record<string, unknown>)
       : {};
 
+  const projectsRaw = Array.isArray(o.projects) ? o.projects : [];
+  const projects: ProjectItem[] = projectsRaw
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
+    .map((p) => ({
+      name: asString(p.name ?? p.title),
+      dates: asString(p.dates),
+      stack: asString(p.stack ?? p.technologies),
+      bullets: asScoredBulletArray(p.bullets),
+    }))
+    .filter((p) => p.name || p.bullets.length > 0);
+
   const experienceRaw = Array.isArray(o.experience) ? o.experience : [];
   const experience: ResumeExperienceItem[] = experienceRaw.map((item) => {
     if (!item || typeof item !== "object") {
@@ -204,8 +224,9 @@ export function normalizeResumeData(input: unknown): ResumeData {
     summary: asString(o.summary),
     education: normalizeEducation(o.education),
     skills: normalizeSkillGroups(o.skills),
-    jobFit: normalizeJobFit(o.jobFit),
+    jobFit: [],
     experience,
+    projects,
   };
 }
 
@@ -254,10 +275,10 @@ export function assertResumeDataUsable(data: ResumeData): void {
     data.summary.length > 0 ||
     data.education.length > 0 ||
     data.skills.some((g) => g.items.length > 0) ||
-    data.jobFit.length > 0 ||
     data.experience.some(
       (e) => e.title.length > 0 || e.bullets.length > 0,
-    );
+    ) ||
+    data.projects.some((p) => p.name.length > 0 || p.bullets.length > 0);
   if (!hasBody) {
     throw new Error("Resume content is empty after normalization");
   }

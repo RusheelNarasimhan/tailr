@@ -1,11 +1,14 @@
 import crypto from "crypto";
 import type { LatexTemplateId, OptionalProfileInput } from "@/types/resume";
 
-export const CACHE_SCHEMA_VERSION = 4;
+import type { ExperienceLevel } from "@/lib/resume/experienceLevel";
+
+export const CACHE_SCHEMA_VERSION = 5;
 
 export type CachedTailorModelPayload = {
   schemaVersion: number;
   template: LatexTemplateId;
+  experienceLevel?: ExperienceLevel;
   keywords: {
     skills: string[];
     tools: string[];

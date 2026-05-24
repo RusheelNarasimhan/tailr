@@ -4,11 +4,17 @@ import {
   ExternalHyperlink,
   Packer,
   Paragraph,
+  TabStopPosition,
+  TabStopType,
   TextRun,
 } from "docx";
+import type { ExperienceLevel } from "@/lib/resume/experienceLevel";
+import { buildRenderSectionOrder } from "@/lib/resume/renderPlan";
+import { sectionTitle, type ResumeSectionId } from "@/lib/resume/sectionOrder";
 import type { LatexTemplateId, ResumeData } from "@/types/resume";
 
-const ACCENT = "2B6CB0";
+const TEXT = "000000";
+const LINK = "000000";
 
 const SPACING: Record<
   LatexTemplateId,
@@ -43,14 +49,21 @@ const SPACING: Record<
   },
 };
 
-function sectionHeading(text: string, template: LatexTemplateId): Paragraph {
+export type GenerateDocxOptions = {
+  experienceLevel?: ExperienceLevel;
+};
+
+function sectionHeading(
+  text: string,
+  template: LatexTemplateId,
+): Paragraph {
   const s = SPACING[template];
   return new Paragraph({
     children: [
       new TextRun({
         text,
         bold: true,
-        color: ACCENT,
+        color: TEXT,
         size: template === "compact" ? 22 : 24,
       }),
     ],
@@ -66,14 +79,242 @@ function githubUrl(raw: string): string | null {
   return `https://github.com/${path}`;
 }
 
+function splitCompanyDates(company: string, dates: string): {
+  company: string;
+  dates: string;
+} {
+  const c = company.trim();
+  const d = dates.trim();
+  if (!d && /\s[–—-]\s/.test(c)) {
+    const parts = c.split(/\s[–—-]\s/u);
+    if (parts.length >= 2) {
+      return {
+        company: parts.slice(0, -1).join(" – ").trim(),
+        dates: parts[parts.length - 1].trim(),
+      };
+    }
+  }
+  return { company: c, dates: d };
+}
+
+function titleLine(
+  left: string,
+  right: string,
+  template: LatexTemplateId,
+): Paragraph {
+  const bodySize = template === "compact" ? 20 : 22;
+  const children: TextRun[] = [
+    new TextRun({ text: left, bold: true, color: TEXT, size: bodySize }),
+  ];
+  if (right) {
+    children.push(
+      new TextRun({ text: "\t", size: bodySize }),
+      new TextRun({
+        text: right,
+        italics: true,
+        color: TEXT,
+        size: bodySize,
+      }),
+    );
+  }
+  return new Paragraph({
+    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
+    children,
+    spacing: { before: SPACING[template].expBefore, after: 100 },
+  });
+}
+
+function bulletParagraph(text: string, template: LatexTemplateId): Paragraph {
+  return new Paragraph({
+    children: [
+      new TextRun({ text: text.trim(), color: TEXT, size: template === "compact" ? 20 : 22 }),
+    ],
+    bullet: { level: 0 },
+    spacing: { after: SPACING[template].bulletAfter },
+  });
+}
+
+function renderSummary(
+  data: ResumeData,
+  template: LatexTemplateId,
+  heading: string,
+): Paragraph[] {
+  if (!data.summary.trim()) return [];
+  const bodySize = template === "compact" ? 20 : 22;
+  return [
+    sectionHeading(heading, template),
+    new Paragraph({
+      children: [
+        new TextRun({ text: data.summary.trim(), color: TEXT, size: bodySize }),
+      ],
+      spacing: { after: SPACING[template].sectionAfter },
+    }),
+  ];
+}
+
+function renderEducation(
+  data: ResumeData,
+  template: LatexTemplateId,
+  heading: string,
+): Paragraph[] {
+  if (!data.education.length) return [];
+  const bodySize = template === "compact" ? 20 : 22;
+  const out: Paragraph[] = [sectionHeading(heading, template)];
+  for (const e of data.education) {
+    const left = e.degree.trim() || "Degree";
+    const right = e.graduationDate.trim();
+    out.push(titleLine(left, right, template));
+    if (e.school.trim()) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: e.school.trim(),
+              italics: true,
+              color: TEXT,
+              size: bodySize,
+            }),
+          ],
+          spacing: { after: 40 },
+        }),
+      );
+    }
+    if (e.details.trim()) {
+      out.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: e.details.trim(), color: TEXT, size: bodySize }),
+          ],
+          spacing: { after: SPACING[template].sectionAfter },
+        }),
+      );
+    }
+  }
+  return out;
+}
+
+function renderSkills(
+  data: ResumeData,
+  template: LatexTemplateId,
+  heading: string,
+): Paragraph[] {
+  if (!data.skills.some((g) => g.items.length)) return [];
+  const bodySize = template === "compact" ? 20 : 22;
+  const out: Paragraph[] = [sectionHeading(heading, template)];
+  for (const group of data.skills) {
+    if (!group.items.length) continue;
+    out.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `${group.category}: `,
+            bold: true,
+            color: TEXT,
+            size: bodySize,
+          }),
+          new TextRun({
+            text: group.items.join(", "),
+            color: TEXT,
+            size: bodySize,
+          }),
+        ],
+        spacing: { after: 80 },
+      }),
+    );
+  }
+  return out;
+}
+
+function renderExperience(
+  data: ResumeData,
+  template: LatexTemplateId,
+  heading: string,
+): Paragraph[] {
+  const out: Paragraph[] = [sectionHeading(heading, template)];
+  let any = false;
+  for (const job of data.experience) {
+    if (!job.title.trim() && !job.company.trim() && job.bullets.length === 0) {
+      continue;
+    }
+    any = true;
+    const split = splitCompanyDates(job.company, job.dates);
+    const left = job.title.trim() || split.company || "Role";
+    const right = [split.company && job.title.trim() ? split.company : "", split.dates]
+      .filter(Boolean)
+      .join(" · ");
+    out.push(titleLine(left, right, template));
+    for (const b of job.bullets) {
+      out.push(bulletParagraph(b.text, template));
+    }
+  }
+  if (!any) {
+    out.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "(No experience listed.)",
+            italics: true,
+            color: TEXT,
+            size: template === "compact" ? 20 : 22,
+          }),
+        ],
+      }),
+    );
+  }
+  return out;
+}
+
+function renderProjects(
+  data: ResumeData,
+  template: LatexTemplateId,
+  heading: string,
+): Paragraph[] {
+  const has = data.projects.some((p) => p.name.trim() || p.bullets.length > 0);
+  if (!has) return [];
+  const out: Paragraph[] = [sectionHeading(heading, template)];
+  for (const proj of data.projects) {
+    if (!proj.name.trim() && proj.bullets.length === 0) continue;
+    const right = [proj.dates.trim(), proj.stack.trim()].filter(Boolean).join(" · ");
+    out.push(titleLine(proj.name.trim() || "Project", right, template));
+    for (const b of proj.bullets) {
+      out.push(bulletParagraph(b.text, template));
+    }
+  }
+  return out;
+}
+
+function renderSection(
+  id: ResumeSectionId,
+  data: ResumeData,
+  template: LatexTemplateId,
+  level: ExperienceLevel,
+): Paragraph[] {
+  const heading = sectionTitle(id, level).toUpperCase();
+  switch (id) {
+    case "summary":
+      return renderSummary(data, template, heading);
+    case "education":
+      return renderEducation(data, template, heading);
+    case "skills":
+      return renderSkills(data, template, heading);
+    case "experience":
+      return renderExperience(data, template, heading);
+    case "projects":
+      return renderProjects(data, template, heading);
+    default:
+      return [];
+  }
+}
+
 export async function generateDocxResume(
   data: ResumeData,
   template: LatexTemplateId = "modern",
+  options?: GenerateDocxOptions,
 ): Promise<Buffer> {
+  const level = options?.experienceLevel ?? "experienced_engineer";
   const s = SPACING[template];
   const children: Paragraph[] = [];
   const nameSize = template === "compact" ? 48 : 56;
-  const bodySize = template === "compact" ? 20 : 22;
 
   children.push(
     new Paragraph({
@@ -82,7 +323,7 @@ export async function generateDocxResume(
         new TextRun({
           text: data.header.name.trim() || "Candidate",
           bold: true,
-          color: ACCENT,
+          color: TEXT,
           size: nameSize,
         }),
       ],
@@ -101,6 +342,7 @@ export async function generateDocxResume(
     contactRuns.push(
       new TextRun({
         text: bits.join(" · "),
+        color: TEXT,
         size: template === "compact" ? 18 : 20,
       }),
     );
@@ -110,7 +352,7 @@ export async function generateDocxResume(
   if (ghUrl) {
     if (contactRuns.length) {
       contactRuns.push(
-        new TextRun({ text: " · ", size: template === "compact" ? 18 : 20 }),
+        new TextRun({ text: " · ", color: TEXT, size: template === "compact" ? 18 : 20 }),
       );
     }
     contactRuns.push(
@@ -119,7 +361,7 @@ export async function generateDocxResume(
         children: [
           new TextRun({
             text: ghUrl.replace(/^https?:\/\/(www\.)?/i, ""),
-            color: ACCENT,
+            color: LINK,
             underline: {},
             size: template === "compact" ? 18 : 20,
           }),
@@ -138,161 +380,9 @@ export async function generateDocxResume(
     }),
   );
 
-  if (data.summary.trim()) {
-    children.push(sectionHeading("SUMMARY", template));
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({ text: data.summary.trim(), size: bodySize }),
-        ],
-        spacing: { after: s.sectionAfter },
-      }),
-    );
-  }
-
-  if (data.education.length) {
-    children.push(sectionHeading("EDUCATION", template));
-    for (const e of data.education) {
-      const line1: TextRun[] = [];
-      if (e.degree) {
-        line1.push(new TextRun({ text: e.degree, bold: true, size: bodySize }));
-      }
-      if (e.graduationDate) {
-        line1.push(
-          new TextRun({ text: "\t", size: bodySize }),
-          new TextRun({
-            text: `Graduated: ${e.graduationDate}`,
-            italics: true,
-            color: ACCENT,
-            size: bodySize,
-          }),
-        );
-      }
-      if (line1.length) {
-        children.push(
-          new Paragraph({ children: line1, spacing: { after: 60 } }),
-        );
-      }
-      if (e.school) {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({ text: e.school, italics: true, size: bodySize }),
-            ],
-            spacing: { after: 40 },
-          }),
-        );
-      }
-      if (e.details) {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({ text: e.details, size: bodySize }),
-            ],
-            spacing: { after: s.sectionAfter },
-          }),
-        );
-      }
-    }
-  }
-
-  if (data.skills.some((g) => g.items.length)) {
-    children.push(sectionHeading("SKILLS", template));
-    for (const group of data.skills) {
-      if (!group.items.length) continue;
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${group.category}: `,
-              bold: true,
-              size: bodySize,
-            }),
-            new TextRun({
-              text: group.items.join(", "),
-              size: bodySize,
-            }),
-          ],
-          spacing: { after: 80 },
-        }),
-      );
-    }
-  }
-
-  if (data.jobFit.length) {
-    children.push(sectionHeading("ROLE FIT", template));
-    for (const item of data.jobFit) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `${item.requirement || "Requirement"}: `,
-              bold: true,
-              size: bodySize,
-            }),
-            new TextRun({ text: item.response, size: bodySize }),
-          ],
-          spacing: { after: 100 },
-          bullet: { level: 0 },
-        }),
-      );
-    }
-  }
-
-  children.push(sectionHeading("EXPERIENCE", template));
-  let anyExp = false;
-  for (const job of data.experience) {
-    if (!job.title.trim() && !job.company.trim() && job.bullets.length === 0)
-      continue;
-    anyExp = true;
-    const headerParts = [job.title.trim(), job.company.trim(), job.dates.trim()]
-      .filter(Boolean)
-      .join(" · ");
-    if (headerParts) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: job.title.trim() || job.company.trim(),
-              bold: true,
-              size: template === "academic" ? 22 : 24,
-            }),
-            ...(job.company.trim() || job.dates.trim()
-              ? [
-                  new TextRun({
-                    text: ` — ${[job.company.trim(), job.dates.trim()].filter(Boolean).join(" · ")}`,
-                    italics: true,
-                    size: bodySize,
-                  }),
-                ]
-              : []),
-          ],
-          spacing: { before: s.expBefore, after: 100 },
-        }),
-      );
-    }
-    for (const bullet of job.bullets) {
-      children.push(
-        new Paragraph({
-          text: bullet.text.trim(),
-          bullet: { level: 0 },
-          spacing: { after: s.bulletAfter },
-        }),
-      );
-    }
-  }
-  if (!anyExp) {
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: "(No experience listed.)",
-            italics: true,
-            size: bodySize,
-          }),
-        ],
-      }),
-    );
+  const order = buildRenderSectionOrder(data, level);
+  for (const sectionId of order) {
+    children.push(...renderSection(sectionId, data, template, level));
   }
 
   const doc = new Document({

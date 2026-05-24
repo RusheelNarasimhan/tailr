@@ -5,9 +5,10 @@ type TrimLimits = {
   maxEducation: number;
   maxSkillGroups: number;
   maxItemsPerSkill: number;
-  maxJobFit: number;
   maxRoles: number;
   maxBulletsPerRole: number;
+  maxProjects: number;
+  maxBulletsPerProject: number;
 };
 
 const LIMITS: Record<LatexTemplateId, TrimLimits> = {
@@ -16,27 +17,30 @@ const LIMITS: Record<LatexTemplateId, TrimLimits> = {
     maxEducation: 2,
     maxSkillGroups: 6,
     maxItemsPerSkill: 10,
-    maxJobFit: 4,
     maxRoles: 4,
     maxBulletsPerRole: 5,
+    maxProjects: 3,
+    maxBulletsPerProject: 3,
   },
   modern: {
     summaryMax: 520,
     maxEducation: 3,
     maxSkillGroups: 8,
     maxItemsPerSkill: 14,
-    maxJobFit: 5,
     maxRoles: 5,
     maxBulletsPerRole: 6,
+    maxProjects: 4,
+    maxBulletsPerProject: 4,
   },
   academic: {
     summaryMax: 600,
     maxEducation: 4,
     maxSkillGroups: 8,
     maxItemsPerSkill: 16,
-    maxJobFit: 5,
     maxRoles: 6,
     maxBulletsPerRole: 7,
+    maxProjects: 5,
+    maxBulletsPerProject: 5,
   },
 };
 
@@ -57,9 +61,10 @@ function effectiveLimits(
     maxEducation: 1,
     maxSkillGroups: Math.min(5, base.maxSkillGroups),
     maxItemsPerSkill: Math.min(8, base.maxItemsPerSkill),
-    maxJobFit: 3,
     maxRoles: Math.min(3, base.maxRoles),
     maxBulletsPerRole: Math.min(4, base.maxBulletsPerRole - 1),
+    maxProjects: Math.min(3, base.maxProjects),
+    maxBulletsPerProject: Math.min(3, base.maxBulletsPerProject),
   };
 }
 
@@ -82,13 +87,14 @@ export function trimResumeForTemplate(
       category: g.category,
       items: g.items.slice(0, L.maxItemsPerSkill),
     })),
-    jobFit: data.jobFit.slice(0, L.maxJobFit).map((j) => ({
-      requirement: truncate(j.requirement, 140),
-      response: truncate(j.response, 280),
-    })),
+    jobFit: [],
     experience: data.experience.slice(0, L.maxRoles).map((job) => ({
       ...job,
       bullets: job.bullets.slice(0, L.maxBulletsPerRole),
+    })),
+    projects: data.projects.slice(0, L.maxProjects).map((p) => ({
+      ...p,
+      bullets: p.bullets.slice(0, L.maxBulletsPerProject),
     })),
   };
 }

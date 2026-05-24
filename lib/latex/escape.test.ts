@@ -30,6 +30,7 @@ const baseResume: ResumeData = {
       bullets: [{ text: "Lifted conversion 18% through A/B tested landing pages.", score: 0.9 }],
     },
   ],
+  projects: [],
 };
 
 describe("escapeLatex", () => {

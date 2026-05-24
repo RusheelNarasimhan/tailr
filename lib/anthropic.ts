@@ -24,7 +24,11 @@ export async function fetchMultiVariantResumeRawText(
   input: StructuredResumeInput,
 ): Promise<string> {
   const anthropic = getAnthropicClient();
-  const system = buildMultiVariantSystemPrompt(input.jobDescription);
+  const system = buildMultiVariantSystemPrompt(
+    input.jobDescription,
+    input.resumeBullets,
+    input.optionalProfile.graduationDate,
+  );
 
   const completion = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",

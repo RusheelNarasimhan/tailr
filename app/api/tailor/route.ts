@@ -6,11 +6,13 @@ import {
   isCachedModelPayload,
   setCachedTailor,
   tailorInputHash,
+  CACHE_SCHEMA_VERSION,
   type CachedTailorModelPayload,
 } from "@/lib/resumeCache";
 import { parseTailorModelOutput } from "@/lib/tailorModel";
 import type { TailorApiSuccessBody } from "@/lib/tailorApi";
 import { detectJobDomain, getDomainProfile } from "@/lib/resume/domain";
+import { detectExperienceLevel } from "@/lib/resume/experienceLevel";
 import { validateJobDescription } from "@/lib/resume/jobInput";
 import { ensureUserProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
@@ -202,11 +204,16 @@ export async function POST(request: Request) {
     );
     const cachedModel = await getCachedTailor(cacheKey);
     if (cachedModel) {
-      const variants = await renderVariantsFromModel(
+      const { variants, quality } = await renderVariantsFromModel(
         cachedModel,
         template,
         optionalProfile,
         preferOnePage,
+        {
+          jobDescription,
+          resumeBullets,
+          graduationDate: optionalProfile.graduationDate,
+        },
       );
       const uses_count = await incrementUses(
         supabase,
@@ -217,7 +224,7 @@ export async function POST(request: Request) {
         buildSuccessBody(
           variants,
           cachedModel.keywords,
-          cachedModel.quality,
+          quality,
           template,
           true,
           uses_count,
@@ -268,9 +275,16 @@ export async function POST(request: Request) {
       );
     }
 
+    const experienceLevel = detectExperienceLevel({
+      jobDescription,
+      resumeBullets,
+      graduationDate: optionalProfile.graduationDate,
+    });
+
     const modelPayload: CachedTailorModelPayload = {
-      schemaVersion: 4,
+      schemaVersion: CACHE_SCHEMA_VERSION,
       template,
+      experienceLevel,
       keywords: {
         skills: parsed.keywords.skills,
         tools: parsed.keywords.tools,
@@ -283,13 +297,19 @@ export async function POST(request: Request) {
       })),
     };
 
-    const variants = await renderVariantsFromModel(
+    const { variants, quality } = await renderVariantsFromModel(
       modelPayload,
       template,
       optionalProfile,
       preferOnePage,
+      {
+        jobDescription,
+        resumeBullets,
+        graduationDate: optionalProfile.graduationDate,
+      },
     );
 
+    modelPayload.quality = quality;
     await setCachedTailor(cacheKey, modelPayload);
 
     const uses_count = await incrementUses(
@@ -302,7 +322,7 @@ export async function POST(request: Request) {
       buildSuccessBody(
         variants,
         modelPayload.keywords,
-        modelPayload.quality,
+        quality,
         template,
         false,
         uses_count,
