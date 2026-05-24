@@ -10,6 +10,8 @@ import {
 } from "@/lib/resumeCache";
 import { parseTailorModelOutput } from "@/lib/tailorModel";
 import type { TailorApiSuccessBody } from "@/lib/tailorApi";
+import { detectJobDomain, getDomainProfile } from "@/lib/resume/domain";
+import { validateJobDescription } from "@/lib/resume/jobInput";
 import { ensureUserProfile } from "@/lib/profiles";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -57,8 +59,21 @@ function buildSuccessBody(
   template: LatexTemplateId,
   cached: boolean,
   uses_count: number,
+  meta?: {
+    detectedDomain?: string;
+    domainLabel?: string;
+    jobDescriptionWarning?: string | null;
+  },
 ): TailorApiSuccessBody {
-  return { variants, keywords, quality, template, cached, uses_count };
+  return {
+    variants,
+    keywords,
+    quality,
+    template,
+    cached,
+    uses_count,
+    ...meta,
+  };
 }
 
 async function incrementUses(
@@ -114,16 +129,30 @@ export async function POST(request: Request) {
         : "modern";
 
     const resumeBullets = toBulletArray(body.resumeBullets);
-    const jobDescription = body.jobDescription?.trim() ?? "";
+    const jdCheck = validateJobDescription(body.jobDescription ?? "");
 
-    if (!resumeBullets.length || !jobDescription) {
+    if (!resumeBullets.length || !jdCheck.valid) {
       return NextResponse.json(
-        { error: "resumeBullets (non-empty) and jobDescription are required" },
+        {
+          error:
+            jdCheck.warning ??
+            "resumeBullets (non-empty) and jobDescription are required",
+        },
         { status: 400 },
       );
     }
 
+    const jobDescription = jdCheck.jobDescription;
+    const detectedDomain = detectJobDomain(jobDescription);
+    const domainLabel = getDomainProfile(detectedDomain).label;
+
     const preferOnePage = body.preferOnePage !== false;
+
+    const generationMeta = {
+      detectedDomain,
+      domainLabel,
+      jobDescriptionWarning: jdCheck.warning,
+    };
 
     const optionalProfile: OptionalProfileInput = {
       name: body.name?.trim(),
@@ -159,6 +188,7 @@ export async function POST(request: Request) {
           template,
           false,
           uses_count,
+          generationMeta,
         ),
       );
     }
@@ -191,6 +221,7 @@ export async function POST(request: Request) {
           template,
           true,
           uses_count,
+          generationMeta,
         ),
       );
     }
@@ -238,7 +269,7 @@ export async function POST(request: Request) {
     }
 
     const modelPayload: CachedTailorModelPayload = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       template,
       keywords: {
         skills: parsed.keywords.skills,
@@ -259,15 +290,6 @@ export async function POST(request: Request) {
       preferOnePage,
     );
 
-    const responseBody = buildSuccessBody(
-      variants,
-      modelPayload.keywords,
-      modelPayload.quality,
-      template,
-      false,
-      profile.uses_count,
-    );
-
     await setCachedTailor(cacheKey, modelPayload);
 
     const uses_count = await incrementUses(
@@ -276,7 +298,17 @@ export async function POST(request: Request) {
       profile.uses_count,
     );
 
-    return NextResponse.json({ ...responseBody, uses_count });
+    return NextResponse.json(
+      buildSuccessBody(
+        variants,
+        modelPayload.keywords,
+        modelPayload.quality,
+        template,
+        false,
+        uses_count,
+        generationMeta,
+      ),
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     console.error("[tailor] UNHANDLED:", e);

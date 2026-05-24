@@ -17,4 +17,7 @@ export type TailorApiSuccessBody = {
   template: LatexTemplateId;
   cached: boolean;
   uses_count: number;
+  detectedDomain?: string;
+  domainLabel?: string;
+  jobDescriptionWarning?: string | null;
 };

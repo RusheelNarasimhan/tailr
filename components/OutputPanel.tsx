@@ -20,6 +20,8 @@ export type TailorResult = {
   template: LatexTemplateId;
   cached: boolean;
   uses_count?: number;
+  domainLabel?: string;
+  jobDescriptionWarning?: string | null;
 };
 
 type OutputPanelProps = {
@@ -41,10 +43,15 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
     return (
       <div className="card-elevated mt-8 space-y-4 p-8">
         <div className="flex items-center gap-3">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#c9b87a]/30 border-t-[#c9b87a]" />
-          <p className="text-sm text-[#f0ede6]/70">
-            Generating 3 tailored resume variants…
-          </p>
+          <div className="generation-spinner h-5 w-5 rounded-full border-2 border-[#c9b87a]/30 border-t-[#c9b87a]" />
+          <div>
+            <p className="text-sm font-medium text-[#f0ede6]/80">
+              Generating 3 tailored resume variants…
+            </p>
+            <p className="text-xs text-[#f0ede6]/45">
+              Detecting role type and matching tone to the job description
+            </p>
+          </div>
         </div>
         <div className="space-y-3">
           <div className="h-10 animate-pulse rounded-xl bg-white/5" />
@@ -117,7 +124,7 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
       : "Modern/Academic may run closer to 2 pages with long content.";
 
   return (
-    <div className="mt-6 space-y-4">
+    <div key={result.variants[0]?.latex?.slice(0, 32) ?? "out"} className="output-panel-enter mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-[#c9b87a]/40 bg-[#c9b87a]/10 px-4 py-1.5">
           <span className="text-xs font-medium uppercase tracking-wider text-[#c9b87a]/80">
@@ -126,6 +133,11 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
           <span className="text-lg font-bold text-[#c9b87a]">{result.quality.score}</span>
           <span className="text-xs text-[#f0ede6]/50">/100</span>
         </div>
+        {result.domainLabel ? (
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[#f0ede6]/70">
+            Tailored for: <span className="font-medium text-[#c9b87a]">{result.domainLabel}</span>
+          </span>
+        ) : null}
         {result.cached ? (
           <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
             Cached (instant)
@@ -137,6 +149,12 @@ export default function OutputPanel({ output, loading }: OutputPanelProps) {
       </div>
 
       <p className="text-xs text-[#f0ede6]/40">{pageHint}</p>
+
+      {result.jobDescriptionWarning ? (
+        <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/85">
+          {result.jobDescriptionWarning}
+        </p>
+      ) : null}
 
       {result.quality.feedback.length > 0 ? (
         <div className="card p-4">

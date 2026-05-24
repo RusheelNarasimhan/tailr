@@ -1,5 +1,6 @@
 import { generateDocxResume } from "@/lib/docx";
 import { generateLatexResume } from "@/lib/latex";
+import { sanitizeResumeForExport } from "@/lib/resume/sanitize";
 import { trimResumeForTemplate } from "@/lib/resumeTrim";
 import type { CachedTailorModelPayload } from "@/lib/resumeCache";
 import {
@@ -22,6 +23,7 @@ export async function renderVariantsFromModel(
   for (const entry of model.variants) {
     let data = normalizeResumeData(entry.resume);
     data = mergeOptionalProfile(data, optionalProfile);
+    data = sanitizeResumeForExport(data);
     data = trimResumeForTemplate(data, template, preferOnePage);
     assertResumeDataUsable(data);
 

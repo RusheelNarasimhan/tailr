@@ -1,3 +1,5 @@
+import { polishBulletText } from "@/lib/resume/bullets";
+
 export type LatexTemplateId = "compact" | "modern" | "academic";
 
 export const LATEX_TEMPLATES: { id: LatexTemplateId; label: string }[] = [
@@ -100,7 +102,7 @@ function asScoredBulletArray(v: unknown): ScoredBullet[] {
       if (typeof o.score === "number" && !Number.isNaN(o.score)) {
         score = Math.min(1, Math.max(0, o.score));
       }
-      if (text) out.push({ text, score });
+      if (text) out.push({ text: polishBulletText(text), score });
     }
   }
   return out.sort((a, b) => b.score - a.score);

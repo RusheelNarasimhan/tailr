@@ -9,6 +9,7 @@ import {
   saveTailorDraft,
   type TailorDraft,
 } from "@/lib/tailorDraft";
+import Select from "@/components/Select";
 import { LATEX_TEMPLATES, type LatexTemplateId } from "@/types/resume";
 
 type TailorFormProps = {
@@ -180,6 +181,8 @@ export default function TailorForm({
           template: data.template ?? template,
           cached: Boolean(data.cached),
           uses_count: data.uses_count,
+          domainLabel: data.domainLabel,
+          jobDescriptionWarning: data.jobDescriptionWarning,
         });
       } else {
         throw new Error("Response missing variants — check Network tab for API body.");
@@ -214,33 +217,26 @@ export default function TailorForm({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="latex-template"
-            className="text-xs font-medium uppercase tracking-widest text-[#f0ede6]/40"
-          >
-            LaTeX layout
-          </label>
-          <select
-            id="latex-template"
-            value={template}
-            onChange={(e) => setTemplate(e.target.value as LatexTemplateId)}
-            className="input-field max-w-xs !py-2"
-          >
-            {LATEX_TEMPLATES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label className="flex max-w-md cursor-pointer items-start gap-2 text-sm text-[#f0ede6]/60">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <Select
+          id="latex-template"
+          label="LaTeX layout"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value as LatexTemplateId)}
+          className="!py-2"
+        >
+          {LATEX_TEMPLATES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+        <label className="flex max-w-md cursor-pointer items-start gap-2 text-sm text-[#f0ede6]/60 sm:pb-2">
           <input
             type="checkbox"
             checked={preferOnePage}
             onChange={(e) => setPreferOnePage(e.target.checked)}
-            className="mt-0.5 rounded border-white/20"
+            className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#0f0f12] accent-[#c9b87a]"
           />
           <span>
             Prefer ~1 page (tighter trim + shorter sections). Uncheck to allow
@@ -319,9 +315,16 @@ export default function TailorForm({
       <button
         type="submit"
         disabled={loading}
-        className="btn-primary w-full sm:w-auto disabled:opacity-60"
+        className="btn-primary flex w-full items-center justify-center gap-2 sm:w-auto disabled:opacity-60"
       >
-        {loading ? "Generating 3 variants…" : "Generate tailored resumes"}
+        {loading ? (
+          <>
+            <span className="generation-spinner inline-block h-4 w-4 rounded-full border-2 border-[#0a0a0a]/30 border-t-[#0a0a0a]" />
+            Generating 3 variants…
+          </>
+        ) : (
+          "Generate tailored resumes"
+        )}
       </button>
     </form>
   );

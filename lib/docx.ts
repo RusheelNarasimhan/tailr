@@ -274,7 +274,7 @@ export async function generateDocxResume(
     for (const bullet of job.bullets) {
       children.push(
         new Paragraph({
-          text: bullet.text,
+          text: bullet.text.trim(),
           bullet: { level: 0 },
           spacing: { after: s.bulletAfter },
         }),

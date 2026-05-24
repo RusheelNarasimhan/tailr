@@ -138,3 +138,51 @@ body {
   outline: none;
   box-shadow: 0 0 0 3px var(--brand-muted);
 }
+
+.select-field {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.select-field:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.select-field option {
+  background-color: #0f0f12;
+  color: #f0ede6;
+}
+
+.select-field option:checked,
+.select-field option:hover {
+  background-color: #1a1a1f;
+  color: #c9b87a;
+}
+
+@keyframes output-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.output-panel-enter {
+  animation: output-fade-in 0.45s ease-out forwards;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.generation-spinner {
+  animation: spin-slow 0.9s linear infinite;
+}

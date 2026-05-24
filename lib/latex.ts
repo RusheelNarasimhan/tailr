@@ -1,21 +1,14 @@
+import {
+  escapeLatex,
+  joinLatexParts,
+  repairLatexArtifacts,
+} from "@/lib/latex/escape";
+import { validateLatexDocument } from "@/lib/latex/validate";
 import type { LatexTemplateId, ResumeData } from "@/types/resume";
 
-const ACCENT_HTML = "2B6CB0";
+export { escapeLatex, repairLatexArtifacts, validateLatexDocument };
 
-export function escapeLatex(s: string): string {
-  if (!s) return "";
-  return s
-    .replace(/\\/g, "\\textbackslash{}")
-    .replace(/{/g, "\\{")
-    .replace(/}/g, "\\}")
-    .replace(/\$/g, "\\$")
-    .replace(/#/g, "\\#")
-    .replace(/%/g, "\\%")
-    .replace(/&/g, "\\&")
-    .replace(/_/g, "\\_")
-    .replace(/\^/g, "\\textasciicircum{}")
-    .replace(/~/g, "\\textasciitilde{}");
-}
+const ACCENT_HTML = "2B6CB0";
 
 function githubHref(raw: string): { url: string; label: string } | null {
   const t = raw.trim();
@@ -50,7 +43,7 @@ function contactLine(data: ResumeData): string {
       `\\href{${escapeLatex(gh.url)}}{\\color{accent}${escapeLatex(gh.label)}}`,
     );
   }
-  return parts.join(" \\textbullet\\ ");
+  return joinLatexParts(parts, "\\textbullet{}");
 }
 
 const TEMPLATE_PREAMBLE: Record<
@@ -159,11 +152,14 @@ function renderExperience(
     if (!title && !company && job.bullets.length === 0) continue;
 
     if (title || company || dates) {
-      const left = title || "Role";
-      const right = [company, dates].filter(Boolean).join(" \\textbar\\ ");
+      const left = title || escapeLatex("Role");
+      const right = joinLatexParts(
+        [company, dates].filter(Boolean),
+        "\\textbar{}",
+      );
       expTex += `\\noindent\\textbf{${left}}`;
       if (right) {
-        expTex += ` \\hfill \\textit{${escapeLatex(right)}}`;
+        expTex += ` \\hfill \\textit{${right}}`;
       }
       expTex += `\\\\[0.15em]\n`;
     }
@@ -230,10 +226,7 @@ export function generateLatexResume(
   }
 
   if (jobFitTex) {
-    blocks.push(
-      sectionTitle(template, "Role fit"),
-      jobFitTex,
-    );
+    blocks.push(sectionTitle(template, "Role fit"), jobFitTex);
   }
 
   blocks.push(
@@ -242,5 +235,10 @@ export function generateLatexResume(
     "\\end{document}",
   );
 
-  return blocks.join("\n");
+  const raw = blocks.join("\n");
+  const { repaired, valid, issues } = validateLatexDocument(raw);
+  if (!valid && process.env.NODE_ENV === "development") {
+    console.warn("[latex] validation issues:", issues);
+  }
+  return repaired;
 }
