@@ -3,6 +3,8 @@ const WHY_SUFFIX =
 
 const WHY_INLINE = /\s+Why:\s+.+$/i;
 
+const WHY_EM_DASH = /\s*—\s*Why\b[\s\S]*$/i;
+
 const ROBOTIC_PREFIX = /^(?:Successfully\s+)?/i;
 
 /**
@@ -12,7 +14,10 @@ export function sanitizeBulletText(raw: string): string {
   let text = raw.trim();
   if (!text) return "";
 
-  text = text.replace(WHY_SUFFIX, "").replace(WHY_INLINE, "");
+  text = text
+    .replace(WHY_SUFFIX, "")
+    .replace(WHY_INLINE, "")
+    .replace(WHY_EM_DASH, "");
   text = text.replace(/\s{2,}/g, " ").trim();
 
   if (text.endsWith("—") || text.endsWith("-")) {

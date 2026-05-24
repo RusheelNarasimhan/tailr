@@ -3,6 +3,7 @@ import {
   escapeLatex,
   joinLatexParts,
   repairLatexArtifacts,
+  splitCompanyAndDates,
 } from "@/lib/latex/escape";
 import { generateLatexResume } from "@/lib/latex";
 import { validateLatexDocument } from "@/lib/latex/validate";
@@ -36,16 +37,20 @@ describe("escapeLatex", () => {
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\%");
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\&");
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\_");
-    expect(escapeLatex("100% & _growth | pipe")).toContain("\\textbar{}");
+    expect(escapeLatex("100% & _growth | pipe")).toContain("{\\cdot}");
   });
 
   it("does not double-escape LaTeX command separators in joinLatexParts", () => {
-    const joined = joinLatexParts(
-      [escapeLatex("Acme"), escapeLatex("2024")],
-      "\\textbar{}",
-    );
-    expect(joined).toBe("Acme \\textbar{} 2024");
+    const joined = joinLatexParts([escapeLatex("Acme"), escapeLatex("2024")]);
+    expect(joined).toBe("Acme {\\cdot} 2024");
     expect(joined).not.toContain("textbackslash");
+  });
+
+  it("splits company and dates on pipe", () => {
+    expect(splitCompanyAndDates("Tailr Project | 2024", "")).toEqual({
+      company: "Tailr Project",
+      dates: "2024",
+    });
   });
 });
 
@@ -54,7 +59,7 @@ describe("repairLatexArtifacts", () => {
     const broken = "Role \\hfill \\textit{Acme \\{\\}textbar\\{\\} 2024}";
     const fixed = repairLatexArtifacts(broken);
     expect(fixed).not.toContain("{}textbar{}");
-    expect(fixed).toContain("\\textbar{}");
+    expect(fixed).toContain("{\\cdot}");
   });
 });
 

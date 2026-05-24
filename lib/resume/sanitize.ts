@@ -4,8 +4,12 @@ import type { ResumeData } from "@/types/resume";
 /** Strip accidental LaTeX/command fragments from model plain-text fields. */
 function stripLatexFragments(text: string): string {
   return text
+    .replace(/\\textbar\b/gi, " | ")
+    .replace(/\\textbackslash\{\}/gi, "")
+    .replace(/\{\}textbar\{\}/gi, " | ")
     .replace(/\\[a-zA-Z]+\{?/g, " ")
     .replace(/[{}]/g, "")
+    .replace(/\s*\|\s*/g, " | ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }

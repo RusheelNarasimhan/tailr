@@ -25,10 +25,10 @@ export default function Select({
           {label}
         </label>
       ) : null}
-      <div className="select-wrapper relative max-w-xs">
+      <div className="select-wrapper relative max-w-xs rounded-xl border border-white/[0.08] bg-[#0f0f12]">
         <select
           id={id}
-          className={`input-field select-field w-full pr-10 ${className}`}
+          className={`input-field select-field w-full border-0 bg-transparent pr-10 shadow-none ${className}`}
           {...props}
         >
           {children}

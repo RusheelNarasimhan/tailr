@@ -2,6 +2,7 @@ import {
   escapeLatex,
   joinLatexParts,
   repairLatexArtifacts,
+  splitCompanyAndDates,
 } from "@/lib/latex/escape";
 import { validateLatexDocument } from "@/lib/latex/validate";
 import type { LatexTemplateId, ResumeData } from "@/types/resume";
@@ -146,17 +147,15 @@ function renderExperience(
   const topsep = template === "compact" ? "topsep=1pt" : "topsep=2pt";
 
   for (const job of data.experience) {
+    const split = splitCompanyAndDates(job.company, job.dates);
     const title = escapeLatex(job.title.trim());
-    const company = escapeLatex(job.company.trim());
-    const dates = escapeLatex(job.dates.trim());
+    const company = escapeLatex(split.company);
+    const dates = escapeLatex(split.dates);
     if (!title && !company && job.bullets.length === 0) continue;
 
     if (title || company || dates) {
       const left = title || escapeLatex("Role");
-      const right = joinLatexParts(
-        [company, dates].filter(Boolean),
-        "\\textbar{}",
-      );
+      const right = joinLatexParts([company, dates].filter(Boolean));
       expTex += `\\noindent\\textbf{${left}}`;
       if (right) {
         expTex += ` \\hfill \\textit{${right}}`;
