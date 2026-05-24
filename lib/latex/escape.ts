@@ -1,14 +1,20 @@
 /**
  * Escape plain text for LaTeX. Apply only to user/model content, never to LaTeX commands we insert.
  */
+
+/** Text-mode separator (same as contact line). Do not use \\cdot — it requires math mode. */
+export const LATEX_TEXT_SEPARATOR = "\\textbullet{}";
+
 /** Normalize plain text before LaTeX escaping (pipes, broken command fragments). */
 export function normalizePlainTextForLatex(s: string): string {
   if (!s) return "";
   return s
-    .replace(/\\textbar\b/gi, " | ")
+    .replace(/\\cdot\b/g, " · ")
+    .replace(/\\textbar\b/gi, " · ")
     .replace(/\\textbackslash\{\}/gi, "")
-    .replace(/\{\}textbar\{\}/gi, " | ")
-    .replace(/\s*\|\s*/g, " | ")
+    .replace(/\{\}textbar\{\}/gi, " · ")
+    .replace(/\{\s*\\cdot\s*\}/gi, " · ")
+    .replace(/\s*\|\s*/g, " · ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -28,12 +34,14 @@ export function escapeLatex(s: string): string {
     .replace(/\^/g, "\\textasciicircum{}")
     .replace(/~/g, "\\textasciitilde{}")
     .replace(/</g, "\\textless{}")
-    .replace(/>/g, "\\textgreater{}")
-    .replace(/\|/g, "{\\cdot}");
+    .replace(/>/g, "\\textgreater{}");
 }
 
-/** Join already-escaped fragments with a safe separator (not re-escaped). */
-export function joinLatexParts(parts: string[], separator = "{\\cdot}"): string {
+/** Join already-escaped fragments with a text-mode separator (not re-escaped). */
+export function joinLatexParts(
+  parts: string[],
+  separator: string = LATEX_TEXT_SEPARATOR,
+): string {
   return parts.filter(Boolean).join(` ${separator} `);
 }
 
@@ -55,16 +63,18 @@ export function splitCompanyAndDates(
 }
 
 /**
- * Fix common double-escape artifacts from older generators (e.g. \\{\\}textbar\\{\\}).
+ * Fix common double-escape and math-mode artifacts in generated LaTeX.
  */
 export function repairLatexArtifacts(source: string): string {
   if (!source) return "";
   return source
-    .replace(/\\textbackslash\{\}\\{\\}textbar\\{\\}/g, "{\\cdot}")
-    .replace(/\\textbackslash\{\}textbar\\textbackslash\{\}/g, "{\\cdot}")
-    .replace(/\\textbackslash\{\}\s*textbar/g, "{\\cdot}")
-    .replace(/\\{\\}textbar\\{\\}/g, "{\\cdot}")
-    .replace(/\{\}textbar\{\}/g, "{\\cdot}")
-    .replace(/\\textbar\{\}/g, "{\\cdot}")
-    .replace(/\\textbar\b/g, "{\\cdot}");
+    .replace(/\\textbackslash\{\}\\{\\}textbar\\{\\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\textbackslash\{\}textbar\\textbackslash\{\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\textbackslash\{\}\s*textbar/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\{\\}textbar\\{\\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\{\}textbar\{\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\textbar\{\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\textbar\b/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\{\s*\\cdot\s*\}/g, ` ${LATEX_TEXT_SEPARATOR} `)
+    .replace(/\\cdot\b/g, ` ${LATEX_TEXT_SEPARATOR} `);
 }

@@ -37,13 +37,15 @@ describe("escapeLatex", () => {
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\%");
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\&");
     expect(escapeLatex("100% & _growth | pipe")).toContain("\\_");
-    expect(escapeLatex("100% & _growth | pipe")).toContain("{\\cdot}");
+    expect(escapeLatex("100% & _growth | pipe")).toContain("·");
+    expect(escapeLatex("100% & _growth | pipe")).not.toContain("\\cdot");
   });
 
   it("does not double-escape LaTeX command separators in joinLatexParts", () => {
     const joined = joinLatexParts([escapeLatex("Acme"), escapeLatex("2024")]);
-    expect(joined).toBe("Acme {\\cdot} 2024");
+    expect(joined).toBe("Acme \\textbullet{} 2024");
     expect(joined).not.toContain("textbackslash");
+    expect(joined).not.toContain("\\cdot");
   });
 
   it("splits company and dates on pipe", () => {
@@ -59,7 +61,27 @@ describe("repairLatexArtifacts", () => {
     const broken = "Role \\hfill \\textit{Acme \\{\\}textbar\\{\\} 2024}";
     const fixed = repairLatexArtifacts(broken);
     expect(fixed).not.toContain("{}textbar{}");
-    expect(fixed).toContain("{\\cdot}");
+    expect(fixed).toContain("\\textbullet{}");
+  });
+
+  it("experience line compiles without math-mode cdot in textit", () => {
+    const tex = generateLatexResume(
+      {
+        ...baseResume,
+        experience: [
+          {
+            title: "Digital Marketing Developer",
+            company: "Tailr AI Platform",
+            dates: "2024",
+            bullets: [{ text: "Increased engagement 18%.", score: 0.9 }],
+          },
+        ],
+      },
+      "modern",
+    );
+    expect(tex).toContain("\\textit{Tailr AI Platform \\textbullet{} 2024}");
+    expect(tex).not.toMatch(/\{\\cdot\}/);
+    expect(tex).not.toMatch(/\\textit\{[^}]*\\cdot/);
   });
 });
 

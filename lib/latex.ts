@@ -44,7 +44,7 @@ function contactLine(data: ResumeData): string {
       `\\href{${escapeLatex(gh.url)}}{\\color{accent}${escapeLatex(gh.label)}}`,
     );
   }
-  return joinLatexParts(parts, "\\textbullet{}");
+  return joinLatexParts(parts);
 }
 
 const TEMPLATE_PREAMBLE: Record<
@@ -196,6 +196,7 @@ export function generateLatexResume(
   blocks.push(
     "\\documentclass[11pt]{article}",
     t.geometry,
+    "\\usepackage[utf8]{inputenc}",
     "\\usepackage[dvipsnames]{xcolor}",
     `\\definecolor{accent}{HTML}{${ACCENT_HTML}}`,
     "\\usepackage{enumitem}",
